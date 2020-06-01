@@ -35,6 +35,7 @@ class SmallDataIOReader
         int data_width;               // assume the same throughout file
         std::vector<int> num_columns; // sum of coord and data columns in each
                                       // block
+        void clear();
     };
 
   protected:
@@ -79,6 +80,10 @@ class SmallDataIOReader
     // Get same data column from all blocks
     std::vector<std::vector<double>>
     get_data_column_from_all_blocks(int a_data_column);
+
+    // Returns a vector of numeric values from a header row
+    std::vector<double> get_data_from_header(int a_header_row_number,
+                                             int a_block = 0);
 };
 
 #endif /* SMALLDATAIOREADER_HPP */

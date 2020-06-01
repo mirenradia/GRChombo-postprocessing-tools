@@ -8,8 +8,20 @@
 #include <cassert>
 #include <iomanip>
 #include <iostream>
+#include <regex>
 
-// A class to read files written using SmallDataIO.
+void SmallDataIOReader::file_structure_t::clear()
+{
+    num_blocks = 0;
+    block_starts.clear();
+    num_data_rows.clear();
+    num_header_rows.clear();
+    num_coords_columns.clear();
+    coords_width = 0;
+    num_data_columns.clear();
+    data_width = 0;
+    num_columns.clear();
+}
 
 // Constructor
 SmallDataIOReader::SmallDataIOReader() : m_structure_defined(false) {}
@@ -47,8 +59,9 @@ void SmallDataIOReader::close()
     {
         m_file.close();
     }
-    m_filename = "";
+    m_filename.clear();
     m_structure_defined = false;
+    m_file_structure.clear();
 }
 
 // Parses the file and determines its structure
@@ -163,6 +176,7 @@ void SmallDataIOReader::set_file_structure(
     const SmallDataIOReader::file_structure_t &a_file_structure)
 {
     m_file_structure = a_file_structure;
+    m_structure_defined = true;
 }
 
 // File struture getter
@@ -175,6 +189,7 @@ SmallDataIOReader::get_file_structure() const
 // Get a column from a block (either coord or data)
 std::vector<double> SmallDataIOReader::get_column(int a_column, int a_block)
 {
+    assert(m_file.is_open());
     assert(m_structure_defined);
     assert(a_column < m_file_structure.num_columns[a_block]);
     std::vector<double> out(m_file_structure.num_data_rows[a_block]);
@@ -204,7 +219,7 @@ std::vector<double> SmallDataIOReader::get_column(int a_column, int a_block)
     // assume header rows are all at the top of the block so skip these
     for (int irow = 0; irow < m_file_structure.num_header_rows[a_block]; ++irow)
     {
-        std::getline(m_file, line);
+        m_file.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
     }
     for (int irow = 0; irow < m_file_structure.num_data_rows[a_block]; ++irow)
     {
@@ -248,5 +263,43 @@ SmallDataIOReader::get_data_column_from_all_blocks(int a_data_column)
     {
         out[iblock] = std::move(get_data_column(a_data_column, iblock));
     }
+    return out;
+}
+
+// Returns a vector of numeric values from a header row
+std::vector<double>
+SmallDataIOReader::get_data_from_header(int a_header_row_number, int a_block)
+{
+    assert(m_file.is_open());
+    assert(m_structure_defined);
+    assert(a_header_row_number < m_file_structure.num_header_rows[a_block]);
+
+    // move stream to start of block
+    m_file.clear();
+    m_file.seekg(m_file_structure.block_starts[a_block], std::ios::beg);
+    std::string line;
+
+    // assume header rows are at start of block
+    for (int irow = 0; irow < a_header_row_number; ++irow)
+    {
+        // skip lines before desired row
+        m_file.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    }
+
+    // get desired header line
+    std::getline(m_file, line);
+
+    // find numbers in header using regex
+    // I think this takes a long time to compile...
+    std::regex number("[+-]?([0-9]*\\.)?[0-9]+");
+    auto numbers_begin = std::sregex_iterator(line.begin(), line.end(), number);
+    auto numbers_end = std::sregex_iterator();
+    std::vector<double> out;
+    for (std::sregex_iterator rit = numbers_begin; rit != numbers_end; ++rit)
+    {
+        // put matches in vector
+        out.push_back(std::stod((*rit).str()));
+    }
+
     return out;
 }
