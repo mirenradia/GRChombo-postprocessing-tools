@@ -15,6 +15,7 @@
 class SmallDataIOReader
 {
   public:
+    using column_t = std::vector<double>;
     // A struct for information about the structure of a SmallDataIO file
     struct file_structure_t
     {
@@ -68,14 +69,15 @@ class SmallDataIOReader
     // File struture getter
     const file_structure_t &get_file_structure() const;
 
-    // Get a column from a block (either coord or data)
-    std::vector<double> get_column(int a_column, int a_block = 0);
+    // Get an interval of columns (inclusive) from a block
+    std::vector<column_t> get_columns(int a_min_column, int a_max_column,
+                                      int a_block = 0);
 
-    // Get a data column from a block
-    std::vector<double> get_data_column(int a_data_column, int a_block = 0);
+    // Get all data columns from a block
+    std::vector<column_t> get_all_data_columns(int a_block = 0);
 
-    // Get same column from all blocks
-    std::vector<std::vector<double>> get_column_from_all_blocks(int a_column);
+    // Get a single column from a block
+    column_t get_column(int a_column, int a_block = 0);
 
     // Get same data column from all blocks
     std::vector<std::vector<double>>

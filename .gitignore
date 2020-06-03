@@ -15,6 +15,7 @@ log*
 *.out
 *.hdf5
 *.dSYM
+*.dat
 
 # Prerequisites
 *.d

@@ -10,21 +10,32 @@
 
 #include "IntegrationMethod.hpp"
 #include "SmallDataIOReader.hpp"
+#include <algorithm>
 #include <filesystem>
+#include <functional>
 #include <limits>
 #include <map>
 #include <string>
 #include <vector>
 
-// A class to read and store the data extracted by SurfaceExtraction
+#ifdef _OPENMP
+#include <omp.h>
+#endif /* _OPENMP */
+
+// A class to read, store and manipulate the data extracted by SurfaceExtraction
 class SurfaceExtractionData
 {
   public:
-    // indices: dataset surface_param_value timestep u v
+    // main type alises used for m_data
+    // indices: timestep surface_param_value dataset u v
     using surface_data_t = std::vector<std::vector<double>>;
-    using time_surface_data_t = std::vector<surface_data_t>;
-    using time_multisurface_data_t = std::vector<time_surface_data_t>;
-    using extracted_data_t = std::vector<time_multisurface_data_t>;
+    using surface_multidata_t = std::vector<surface_data_t>;
+    using multisurface_multidata_t = std::vector<surface_multidata_t>;
+    using extracted_data_t = std::vector<multisurface_multidata_t>;
+
+    // other type aliases which arise from integration
+    using multisurface_value_t = std::vector<double>;
+    using time_multisurface_value_t = std::vector<multisurface_value_t>;
 
   protected:
     bool m_structure_determined;
@@ -59,11 +70,11 @@ class SurfaceExtractionData
 
     // resize a time_surface_data_t object to the appropriate size
     void
-    resize_time_surface_data(time_surface_data_t &a_time_surface_data) const;
+    resize_surface_multidata(surface_multidata_t &a_surface_multidata) const;
 
     // resize a time_multisurface_data_t object to the appopriate size
-    void resize_time_multisurface_data(
-        time_multisurface_data_t &a_time_multisurface_data) const;
+    void resize_multisurface_multidata(
+        multisurface_multidata_t &a_multisurface_multidata) const;
 
     // resize an extracted_data_t object to the appropriate size
     void resize_extracted_data(extracted_data_t &a_extracted_data_t) const;
@@ -74,11 +85,49 @@ class SurfaceExtractionData
     // Get Data
     const extracted_data_t &get_data() const;
 
-    // Integrate a single dataset on a single surface in time from step
-    // a_min_step to a_max_step. Note these steps corresponds to the first index
-    // in_data
-    void integrate_time(surface_data_t &out, const time_surface_data_t &in_data,
+    // Integrate all datasets on all surfaces in time from step
+    // a_min_step to a_max_step inclusive. Note these steps corresponds to the
+    // first index in_data
+    void integrate_time(multisurface_multidata_t &out,
+                        const extracted_data_t &in_data, int a_min_step,
+                        int a_max_step) const;
+
+    // For each step s, the partial integral of all datasets on all surfaces is
+    // computed from the minimum available step to s.
+    // This can be expensive so OpenMP is used if available.
+    void integrate_all_time(extracted_data_t &out,
+                            const extracted_data_t &in_data) const;
+
+    // Integrate a value on all surfaces in time from step a_min_step to
+    // a_max_step inclusive
+    void integrate_time(multisurface_value_t &out,
+                        const time_multisurface_value_t &in_data,
                         int a_min_step, int a_max_step) const;
+
+    // this is the type used for integrands on the surface, the vector<double>
+    // is a vector of all the datasets at the point on the surface.
+    using integrand_t =
+        std::function<double(std::vector<double> &, double, double, double)>;
+
+    // Integrate an integrand_t over all surfaces
+    template <typename SurfaceGeometry>
+    void integrate_surface(
+        multisurface_value_t &out, const multisurface_multidata_t &in_data,
+        const integrand_t &a_integrand, const SurfaceGeometry &a_geom,
+        const IntegrationMethod &a_method_u = IntegrationMethod::trapezium,
+        const IntegrationMethod &a_method_v =
+            IntegrationMethod::trapezium) const;
+
+    // Integrate an integrand_t over all surfaces for each step from a_min_step
+    // to a_max_step inclusive
+    template <typename SurfaceGeometry>
+    void integrate_surface(
+        time_multisurface_value_t &out, const extracted_data_t &in_data,
+        const integrand_t &a_integrand, const SurfaceGeometry &a_geom,
+        int a_min_step, int a_max_step,
+        const IntegrationMethod &a_method_u = IntegrationMethod::trapezium,
+        const IntegrationMethod &a_method_v =
+            IntegrationMethod::trapezium) const;
 
     // Clear all data and structure information
     void clear();
@@ -95,5 +144,7 @@ class SurfaceExtractionData
         return a_iu * m_num_points_v + a_iv;
     }
 };
+
+#include "SurfaceExtractionData.impl.hpp"
 
 #endif /* SURFACEEXTRACTIONDATA_HPP */

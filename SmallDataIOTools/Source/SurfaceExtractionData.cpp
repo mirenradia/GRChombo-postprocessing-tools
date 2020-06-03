@@ -131,26 +131,26 @@ void SurfaceExtractionData::resize_surface_data(
 }
 
 // resize a time_surface_data_t object to the appropriate size
-void SurfaceExtractionData::resize_time_surface_data(
-    time_surface_data_t &a_time_surface_data) const
+void SurfaceExtractionData::resize_surface_multidata(
+    surface_multidata_t &a_surface_multidata) const
 {
     assert(m_structure_determined);
-    a_time_surface_data.resize(m_num_steps);
-    for (auto &fixed_time_data : a_time_surface_data)
+    a_surface_multidata.resize(m_num_datasets);
+    for (auto &fixed_dataset_data : a_surface_multidata)
     {
-        resize_surface_data(fixed_time_data);
+        resize_surface_data(fixed_dataset_data);
     }
 }
 
 // resize a time_multisurface_data_t object to the appopriate size
-void SurfaceExtractionData::resize_time_multisurface_data(
-    time_multisurface_data_t &a_time_multisurface_data) const
+void SurfaceExtractionData::resize_multisurface_multidata(
+    multisurface_multidata_t &a_multisurface_multidata) const
 {
     assert(m_structure_determined);
-    a_time_multisurface_data.resize(m_num_surfaces);
-    for (auto &fixed_surface_time_data : a_time_multisurface_data)
+    a_multisurface_multidata.resize(m_num_surfaces);
+    for (auto &fixed_surface_data : a_multisurface_multidata)
     {
-        resize_time_surface_data(fixed_surface_time_data);
+        resize_surface_multidata(fixed_surface_data);
     }
 }
 
@@ -159,10 +159,10 @@ void SurfaceExtractionData::resize_extracted_data(
     extracted_data_t &a_extracted_data_t) const
 {
     assert(m_structure_determined);
-    a_extracted_data_t.resize(m_num_datasets);
-    for (auto &fixed_dataset_data : a_extracted_data_t)
+    a_extracted_data_t.resize(m_num_steps);
+    for (auto &fixed_step_data : a_extracted_data_t)
     {
-        resize_time_multisurface_data(fixed_dataset_data);
+        resize_multisurface_multidata(fixed_step_data);
     }
 }
 
@@ -170,7 +170,6 @@ void SurfaceExtractionData::read_data()
 {
     resize_extracted_data(m_data);
 
-    // loop in this weird order so file from each timestep is only opened once
     for (int istep = 0; istep < m_num_steps; ++istep)
     {
         auto filesit = m_files.begin();
@@ -179,18 +178,18 @@ void SurfaceExtractionData::read_data()
         std::cout << "SurfaceExtractionData::read_data: Reading data from step "
                   << istep << "/" << m_num_steps << "\r";
         m_file_reader.set_file_structure(m_file_structure);
-        for (int idataset = 0; idataset < m_num_datasets; ++idataset)
+        for (int isurface = 0; isurface < m_num_surfaces; ++isurface)
         {
-            auto read_data = std::move(
-                m_file_reader.get_data_column_from_all_blocks(idataset));
-            for (int isurface = 0; isurface < m_num_surfaces; ++isurface)
+            auto read_data =
+                std::move(m_file_reader.get_all_data_columns(isurface));
+            for (int idataset = 0; idataset < m_num_datasets; ++idataset)
             {
                 for (int iu = 0; iu < m_num_points_u; ++iu)
                 {
                     for (int iv = 0; iv < m_num_points_v; ++iv)
                     {
-                        m_data[idataset][isurface][istep][iu][iv] =
-                            read_data[isurface][index(iu, iv)];
+                        m_data[istep][isurface][idataset][iu][iv] =
+                            read_data[idataset][index(iu, iv)];
                     }
                 }
             }
@@ -214,25 +213,28 @@ SurfaceExtractionData::get_data() const
     return m_data;
 }
 
-// Integrate a single dataset on a single surface in time from step
-// a_min_step to a_max_step
-void SurfaceExtractionData::integrate_time(surface_data_t &out,
-                                           const time_surface_data_t &in_data,
+void SurfaceExtractionData::integrate_time(multisurface_multidata_t &out,
+                                           const extracted_data_t &in_data,
                                            int a_min_step, int a_max_step) const
 {
     assert(m_structure_determined);
     assert(a_min_step <= a_max_step);
     out.clear();
-    resize_surface_data(out);
+    resize_multisurface_multidata(out);
     const int num_intervals = a_max_step - a_min_step;
     const int num_steps = num_intervals + 1;
     constexpr bool is_periodic = false;
-
-    for (auto &fixed_u_data : out)
+    for (auto &fixed_surface_data : out)
     {
-        for (auto &data : fixed_u_data)
+        for (auto &fixed_dataset_data : fixed_surface_data)
         {
-            data = 0.0;
+            for (auto &fixed_u_data : fixed_dataset_data)
+            {
+                for (auto &data : fixed_u_data)
+                {
+                    data = 0.0;
+                }
+            }
         }
     }
 
@@ -244,15 +246,22 @@ void SurfaceExtractionData::integrate_time(surface_data_t &out,
     {
         for (int istep = a_min_step; istep <= a_max_step; ++istep)
         {
-            for (int iu = 0; iu < m_num_points_u; ++iu)
+            for (int isurface = 0; isurface < m_num_surfaces; ++isurface)
             {
-                for (int iv = 0; iv < m_num_points_v; ++iv)
+                for (int idataset = 0; idataset < m_num_datasets; ++idataset)
                 {
-                    out[iu][iv] +=
-                        m_dt *
-                        IntegrationMethod::trapezium.weight(
-                            istep - a_min_step, num_steps, is_periodic) *
-                        in_data[istep][iu][iv];
+                    for (int iu = 0; iu < m_num_points_u; ++iu)
+                    {
+                        for (int iv = 0; iv < m_num_points_v; ++iv)
+                        {
+                            out[isurface][idataset][iu][iv] +=
+                                m_dt *
+                                IntegrationMethod::trapezium.weight(
+                                    istep - a_min_step, num_steps,
+                                    is_periodic) *
+                                in_data[istep][isurface][idataset][iu][iv];
+                        }
+                    }
                 }
             }
         }
@@ -264,15 +273,23 @@ void SurfaceExtractionData::integrate_time(surface_data_t &out,
         {
             for (int istep = a_min_step; istep <= a_max_step; ++istep)
             {
-                for (int iu = 0; iu < m_num_points_u; ++iu)
+                for (int isurface = 0; isurface < m_num_surfaces; ++isurface)
                 {
-                    for (int iv = 0; iv < m_num_points_v; ++iv)
+                    for (int idataset = 0; idataset < m_num_datasets;
+                         ++idataset)
                     {
-                        out[iu][iv] +=
-                            m_dt *
-                            IntegrationMethod::simpson.weight(
-                                istep - a_min_step, num_steps, is_periodic) *
-                            in_data[istep][iu][iv];
+                        for (int iu = 0; iu < m_num_points_u; ++iu)
+                        {
+                            for (int iv = 0; iv < m_num_points_v; ++iv)
+                            {
+                                out[isurface][idataset][iu][iv] +=
+                                    m_dt *
+                                    IntegrationMethod::simpson.weight(
+                                        istep - a_min_step, num_steps,
+                                        is_periodic) *
+                                    in_data[istep][isurface][idataset][iu][iv];
+                            }
+                        }
                     }
                 }
             }
@@ -286,34 +303,167 @@ void SurfaceExtractionData::integrate_time(surface_data_t &out,
             const int odd_max_step = a_min_step + num_odd_intervals;
             for (int istep = a_min_step; istep <= odd_max_step; ++istep)
             {
-                for (int iu = 0; iu < m_num_points_u; ++iu)
+                for (int isurface = 0; isurface < m_num_surfaces; ++isurface)
                 {
-                    for (int iv = 0; iv < m_num_points_v; ++iv)
+                    for (int idataset = 0; idataset < m_num_datasets;
+                         ++idataset)
                     {
-                        out[iu][iv] +=
-                            m_dt *
-                            SurfaceExtractionData::simpson_odd.weight(
-                                istep - a_min_step, num_odd_steps,
-                                is_periodic) *
-                            in_data[istep][iu][iv];
+                        for (int iu = 0; iu < m_num_points_u; ++iu)
+                        {
+                            for (int iv = 0; iv < m_num_points_v; ++iv)
+                            {
+                                out[isurface][idataset][iu][iv] +=
+                                    m_dt *
+                                    SurfaceExtractionData::simpson_odd.weight(
+                                        istep - a_min_step, num_odd_steps,
+                                        is_periodic) *
+                                    in_data[istep][isurface][idataset][iu][iv];
+                            }
+                        }
                     }
                 }
             }
-            // add weight again for last odd step
+            // add weight again for last odd step (composition of Newton-Cotes
+            // formulae)
             const int even_min_step = odd_max_step;
             const int num_even_steps = a_max_step - even_min_step + 1;
             for (int istep = even_min_step; istep <= a_max_step; ++istep)
             {
-                for (int iu = 0; iu < m_num_points_u; ++iu)
+                for (int isurface = 0; isurface < m_num_surfaces; ++isurface)
                 {
-                    for (int iv = 0; iv < m_num_points_v; ++iv)
+                    for (int idataset = 0; idataset < m_num_datasets;
+                         ++idataset)
                     {
-                        out[iu][iv] += m_dt *
-                                       IntegrationMethod::simpson.weight(
-                                           istep - even_min_step,
-                                           num_even_steps, is_periodic) *
-                                       in_data[istep][iu][iv];
+                        for (int iu = 0; iu < m_num_points_u; ++iu)
+                        {
+                            for (int iv = 0; iv < m_num_points_v; ++iv)
+                            {
+                                out[isurface][idataset][iu][iv] +=
+                                    m_dt *
+                                    IntegrationMethod::simpson.weight(
+                                        istep - even_min_step, num_even_steps,
+                                        is_periodic) *
+                                    in_data[istep][isurface][idataset][iu][iv];
+                            }
+                        }
                     }
+                }
+            }
+            return;
+        }
+    }
+}
+
+void SurfaceExtractionData::integrate_all_time(
+    extracted_data_t &out, const extracted_data_t &in_data) const
+{
+    assert(m_structure_determined);
+    out.resize(m_num_steps);
+
+    // Use dynamic schedule for OpenMP loop as load is proportional to index
+    // (i.e. unbalanced)
+#ifdef _OPENMP
+#pragma omp parallel for default(none) shared(out, in_data, std::cout)         \
+    schedule(dynamic)
+#endif /* _OPENMP */
+    for (int istep = 0; istep < m_num_steps; ++istep)
+    {
+        // print every 100 iterations
+        if (istep % 100 == 0)
+        {
+#ifdef _OPENMP
+#pragma omp critical(print)
+#endif /* _OPENMP */
+            {
+                std::cout << "SurfaceExtractionData::integrate_all_time: Step "
+                          << istep << "/" << m_num_steps - 1 << "\r";
+                std::cout << std::flush;
+            }
+        }
+        integrate_time(out[istep], in_data, 0, istep);
+    }
+}
+
+void SurfaceExtractionData::integrate_time(
+    multisurface_value_t &out, const time_multisurface_value_t &in_data,
+    int a_min_step, int a_max_step) const
+{
+    assert(m_structure_determined);
+    assert(a_min_step <= a_max_step);
+    out.clear();
+    out.resize(m_num_surfaces);
+    const int num_intervals = a_max_step - a_min_step;
+    const int num_steps = num_intervals + 1;
+    constexpr bool is_periodic = false;
+
+    std::fill(out.begin(), out.end(), 0.0);
+
+    if (num_intervals == 0)
+    {
+        return;
+    }
+    else if (num_steps < 3) // Simpson's rule not possible -> use trapezium rule
+    {
+        for (int istep = a_min_step; istep <= a_max_step; ++istep)
+        {
+            for (int isurface = 0; isurface < m_num_surfaces; ++isurface)
+            {
+                out[isurface] +=
+                    m_dt *
+                    IntegrationMethod::trapezium.weight(
+                        istep - a_min_step, num_steps, is_periodic) *
+                    in_data[istep][isurface];
+            }
+        }
+        return;
+    }
+    else // Use Simpson's rule
+    {
+        if (num_intervals % 2 == 0) // even case
+        {
+            for (int istep = a_min_step; istep <= a_max_step; ++istep)
+            {
+                for (int isurface = 0; isurface < m_num_surfaces; ++isurface)
+                {
+                    out[isurface] +=
+                        m_dt *
+                        IntegrationMethod::simpson.weight(
+                            istep - a_min_step, num_steps, is_periodic) *
+                        in_data[istep][isurface];
+                }
+            }
+            return;
+        }
+        else // odd case
+        {
+            // do first 3 steps using odd simpson formula
+            const int num_odd_intervals = 3;
+            const int num_odd_steps = num_odd_intervals + 1;
+            const int odd_max_step = a_min_step + num_odd_intervals;
+            for (int istep = a_min_step; istep <= odd_max_step; ++istep)
+            {
+                for (int isurface = 0; isurface < m_num_surfaces; ++isurface)
+                {
+                    out[isurface] +=
+                        m_dt *
+                        SurfaceExtractionData::simpson_odd.weight(
+                            istep - a_min_step, num_odd_steps, is_periodic) *
+                        in_data[istep][isurface];
+                }
+            }
+            // add weight again for last odd step (composition of Newton-Cotes
+            // formulae)
+            const int even_min_step = odd_max_step;
+            const int num_even_steps = a_max_step - even_min_step + 1;
+            for (int istep = even_min_step; istep <= a_max_step; ++istep)
+            {
+                for (int isurface = 0; isurface < m_num_surfaces; ++isurface)
+                {
+                    out[isurface] += m_dt *
+                                     IntegrationMethod::simpson.weight(
+                                         istep - even_min_step, num_even_steps,
+                                         is_periodic) *
+                                     in_data[istep][isurface];
                 }
             }
             return;

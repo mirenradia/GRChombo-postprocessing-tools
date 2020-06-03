@@ -164,8 +164,23 @@ void SmallDataIOReader::determine_file_structure()
         }
         current_position = m_file.tellg();
     }
+    // Just in case the file ends without a line break:
+    if (header_row_counter > 0 || data_row_counter > 0)
+    {
+        m_file_structure.num_header_rows.push_back(header_row_counter);
+        m_file_structure.num_data_rows.push_back(data_row_counter);
+        header_row_counter = 0;
+        data_row_counter = 0;
+    }
 
     m_file_structure.num_blocks = block_counter;
+
+    assert(m_file_structure.num_data_rows.size() ==
+           m_file_structure.num_header_rows.size() ==
+           m_file_structure.num_coords_columns.size() ==
+           m_file_structure.num_data_columns.size() ==
+           m_file_structure.num_columns.size() ==
+           m_file_structure.block_starts.size() == m_file_structure.num_blocks);
 
     m_structure_defined = true;
 }
@@ -186,29 +201,43 @@ SmallDataIOReader::get_file_structure() const
     return m_file_structure;
 }
 
-// Get a column from a block (either coord or data)
-std::vector<double> SmallDataIOReader::get_column(int a_column, int a_block)
+// Get an interval of columns (inclusive) from a block
+std::vector<SmallDataIOReader::column_t>
+SmallDataIOReader::get_columns(int a_min_column, int a_max_column, int a_block)
 {
     assert(m_file.is_open());
     assert(m_structure_defined);
-    assert(a_column < m_file_structure.num_columns[a_block]);
-    std::vector<double> out(m_file_structure.num_data_rows[a_block]);
-
-    // how many characters across is the start of the column
-    int start_position, column_width;
-    if (a_column < m_file_structure.num_coords_columns[a_block])
+    assert(0 <= a_min_column <= a_max_column <
+           m_file_structure.num_columns[a_block]);
+    const int num_columns = a_max_column - a_min_column + 1;
+    std::vector<column_t> out(num_columns);
+    for (auto &column : out)
     {
-        start_position = a_column * m_file_structure.coords_width;
-        column_width = m_file_structure.coords_width;
+        column.resize(m_file_structure.num_data_rows[a_block]);
     }
-    else
+
+    // how many characters across is the start of each column
+    std::vector<int> start_position(num_columns);
+    std::vector<int> column_widths(num_columns);
+    for (int ifcolumn = a_min_column; ifcolumn <= a_max_column; ++ifcolumn)
     {
-        start_position =
-            m_file_structure.num_coords_columns[a_block] *
-                m_file_structure.coords_width +
-            (a_column - m_file_structure.num_coords_columns[a_block]) *
-                m_file_structure.data_width;
-        column_width = m_file_structure.data_width;
+        // ifcolumn is column index in file and icolumn is column index in
+        // output
+        int icolumn = ifcolumn - a_min_column;
+        if (ifcolumn < m_file_structure.num_coords_columns[a_block])
+        {
+            start_position[icolumn] = ifcolumn * m_file_structure.coords_width;
+            column_widths[icolumn] = m_file_structure.coords_width;
+        }
+        else
+        {
+            start_position[icolumn] =
+                m_file_structure.num_coords_columns[a_block] *
+                    m_file_structure.coords_width +
+                (ifcolumn - m_file_structure.num_coords_columns[a_block]) *
+                    m_file_structure.data_width;
+            column_widths[icolumn] = m_file_structure.data_width;
+        }
     }
 
     // move stream position to start of block
@@ -224,46 +253,31 @@ std::vector<double> SmallDataIOReader::get_column(int a_column, int a_block)
     for (int irow = 0; irow < m_file_structure.num_data_rows[a_block]; ++irow)
     {
         std::getline(m_file, line);
-        out[irow] = std::stod(line.substr(start_position, column_width));
+        for (int icolumn = 0; icolumn < num_columns; ++icolumn)
+        {
+            out[icolumn][irow] = std::stod(
+                line.substr(start_position[icolumn], column_widths[icolumn]));
+        }
     }
     return out;
 }
 
 // Get a data column from a block
-std::vector<double> SmallDataIOReader::get_data_column(int a_data_column,
-                                                       int a_block)
+std::vector<SmallDataIOReader::column_t>
+SmallDataIOReader::get_all_data_columns(int a_block)
 {
     assert(m_structure_defined);
-    int column = m_file_structure.num_coords_columns[a_block] + a_data_column;
-    return get_column(column, a_block);
+    int min_data_column = m_file_structure.num_coords_columns[a_block];
+    int max_data_column =
+        min_data_column + m_file_structure.num_data_columns[a_block] - 1;
+    return get_columns(min_data_column, max_data_column, a_block);
 }
 
-// Get same column from all blocks
-std::vector<std::vector<double>>
-SmallDataIOReader::get_column_from_all_blocks(int a_column)
+SmallDataIOReader::column_t SmallDataIOReader::get_column(int a_column,
+                                                          int a_block)
 {
-    assert(m_structure_defined);
-    std::vector<std::vector<double>> out(m_file_structure.num_blocks);
-
-    for (int iblock = 0; iblock < m_file_structure.num_blocks; ++iblock)
-    {
-        out[iblock] = std::move(get_column(a_column, iblock));
-    }
-    return out;
-}
-
-// Get same data column from all blocks
-std::vector<std::vector<double>>
-SmallDataIOReader::get_data_column_from_all_blocks(int a_data_column)
-{
-    assert(m_structure_defined);
-    std::vector<std::vector<double>> out(m_file_structure.num_blocks);
-
-    for (int iblock = 0; iblock < m_file_structure.num_blocks; ++iblock)
-    {
-        out[iblock] = std::move(get_data_column(a_data_column, iblock));
-    }
-    return out;
+    auto out_vect = std::move(get_columns(a_column, a_column, a_block));
+    return out_vect[0];
 }
 
 // Returns a vector of numeric values from a header row

@@ -40,10 +40,20 @@ int main(int argc, char *argv[])
 
     const auto &data = extraction_data.get_data();
     SurfaceExtractionData::extracted_data_t integrated_data;
+    integrated_data.resize(data.size());
 
     auto start_loop = Clock::now();
     std::cout << "\nIntegrating in time:\n";
-    extraction_data.integrate_all_time(integrated_data, data);
+#ifdef _OPENMP
+#pragma omp parallel for default(none)                                         \
+    shared(data, integrated_data, extraction_data) schedule(guided)
+#endif
+    for (int istep = 0; istep < integrated_data.size(); ++istep)
+    {
+        // std::cout << "Step " << istep << "/"
+        //          << integrated_time_surface_data.size() << "\r";
+        extraction_data.integrate_time(integrated_data[istep], data, 0, istep);
+    }
     auto end_loop = Clock::now();
     time_taken = end_loop - start_loop;
     std::cout << "\nTime taken = " << time_taken.count() << " s\n";

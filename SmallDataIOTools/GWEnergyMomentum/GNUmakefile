@@ -6,13 +6,13 @@
 # Included makefiles need an absolute path to the Chombo installation
 # CHOMBO_HOME := Please set the CHOMBO_HOME locally (e.g. export CHOMBO_HOME=... in bash)
 
-GRCHOMBO_SOURCE ?= ../../GRChombo/Source
+GRCHOMBO_SOURCE ?= ../../../GRChombo/Source
 
-ebase := SmallDataIOTest
+ebase := GWEnergyMomentum
 
 LibNames := BaseTools
 
-src_dirs := Source \
+src_dirs := ../Source \
             $(GRCHOMBO_SOURCE)/AMRInterpolator
 
 # Filesystem library is a C++17 feature
