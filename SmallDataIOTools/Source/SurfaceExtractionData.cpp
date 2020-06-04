@@ -7,6 +7,7 @@
 #include <cassert>
 #include <iostream>
 #include <iterator>
+#include <numeric>
 
 // Simpons's 3/8 rule for integration with odd number of points
 const IntegrationMethod SurfaceExtractionData::simpson_odd({0.375, 1.125,
@@ -22,8 +23,9 @@ SurfaceExtractionData::SurfaceExtractionData(const std::string &a_file_prefix)
 // Determines the structure of data i.e.
 // how many datasets, number of points in u, number of points in v,
 // number of timesteps, min and max times, dt
-void SurfaceExtractionData::determine_data_structure(int a_min_grchombo_step,
-                                                     int a_max_grchombo_step)
+void SurfaceExtractionData::determine_data_structure(
+    std::set<int> a_surface_indices, int a_min_grchombo_step,
+    int a_max_grchombo_step)
 {
 
     namespace fs = std::filesystem;
@@ -67,22 +69,38 @@ void SurfaceExtractionData::determine_data_structure(int a_min_grchombo_step,
     // one
     const int first_block = 0;
     m_num_datasets = m_file_structure.num_data_columns[first_block];
-    m_num_surfaces = m_file_structure.num_blocks;
-    m_surface_param_values.resize(m_num_surfaces);
-    const int first_header = 0;
-    // the surface param value is second (time is first)
-    const int surface_param_header_index = 1;
-    for (int isurface = 0; isurface < m_num_surfaces; ++isurface)
+
+    // get the requested surfaces
+    int total_num_surfaces = m_file_structure.num_blocks;
+    std::set<int> requested_surface_indices = a_surface_indices;
+
+    // if a_surface_indices is empty, request all surfaces
+    if (requested_surface_indices.empty())
     {
-        m_surface_param_values[isurface] = m_file_reader.get_data_from_header(
-            first_header, isurface)[surface_param_header_index];
+        for (int isurface = 0; isurface < total_num_surfaces; ++isurface)
+        {
+            requested_surface_indices.insert(isurface);
+        }
     }
+
+    const int first_header = 0;
+    for (int isurface : requested_surface_indices)
+    {
+        assert(0 <= isurface && isurface < total_num_surfaces);
+        // the surface param value is second (time is first)
+        const int surface_param_header_index = 1;
+        double surface_param_value = m_file_reader.get_data_from_header(
+            first_header, isurface)[surface_param_header_index];
+        m_surfaces.insert(std::make_pair(isurface, surface_param_value));
+    }
+    m_num_surfaces = m_surfaces.size();
+
     const int first_column = 0;
 
     // the u_coords will have blocks of length num_points_v where all the
     // elements are the same.
-    std::vector<double> u_coords =
-        std::move(m_file_reader.get_column(first_column));
+    std::vector<double> u_coords = std::move(
+        m_file_reader.get_column(first_column, m_surfaces.begin()->first));
     int iv = 0;
     while (u_coords[++iv] == u_coords[0])
         ;
@@ -96,8 +114,8 @@ void SurfaceExtractionData::determine_data_structure(int a_min_grchombo_step,
     // get time information
     // lower time limit given by first value in first header in first file
     const int time_header_index = 0;
-    m_time_limits.first =
-        m_file_reader.get_data_from_header(first_header)[time_header_index];
+    m_time_limits.first = m_file_reader.get_data_from_header(
+        first_header, m_surfaces.begin()->first)[time_header_index];
     m_file_reader.close();
 
     // upper time limit from last file
@@ -180,8 +198,10 @@ void SurfaceExtractionData::read_data()
         m_file_reader.set_file_structure(m_file_structure);
         for (int isurface = 0; isurface < m_num_surfaces; ++isurface)
         {
-            auto read_data =
-                std::move(m_file_reader.get_all_data_columns(isurface));
+            auto surface_it = m_surfaces.begin();
+            std::advance(surface_it, isurface);
+            auto read_data = std::move(
+                m_file_reader.get_all_data_columns(surface_it->first));
             for (int idataset = 0; idataset < m_num_datasets; ++idataset)
             {
                 for (int iu = 0; iu < m_num_points_u; ++iu)
@@ -484,7 +504,7 @@ void SurfaceExtractionData::clear()
     m_time_limits.second = 0.;
     m_num_datasets = 0;
     m_num_surfaces = 0;
-    m_surface_param_values.clear();
+    m_surfaces.clear();
     m_num_steps = 0;
     m_num_points_u = 0;
     m_num_points_v = 0;

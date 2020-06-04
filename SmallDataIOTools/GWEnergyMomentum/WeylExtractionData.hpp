@@ -78,9 +78,9 @@ class WeylExtractionData : public SurfaceExtractionData
                         integrated_Weyl4[1] * integrated_Weyl4[1]) /
                        (16.0 * M_PI);
             };
-
+            bool use_area_element = true;
             integrate_surface(m_power, m_time_integrated_data, power_integrand,
-                              m_geom, 0, m_num_steps - 1,
+                              m_geom, 0, m_num_steps - 1, use_area_element,
                               IntegrationMethod::simpson);
         }
         m_power_computed = true;
@@ -128,11 +128,13 @@ class WeylExtractionData : public SurfaceExtractionData
                 momentum_integrand_x, momentum_integrand_y,
                 momentum_integrand_z};
 
+            bool use_area_element = true;
             for (int idir = 0; idir < CH_SPACEDIM; ++idir)
             {
                 integrate_surface(m_momentum_flux[idir], m_time_integrated_data,
                                   momentum_integrands[idir], m_geom, 0,
-                                  m_num_steps - 1, IntegrationMethod::simpson);
+                                  use_area_element, m_num_steps - 1,
+                                  IntegrationMethod::simpson);
             }
         }
         m_momentum_flux_computed = true;

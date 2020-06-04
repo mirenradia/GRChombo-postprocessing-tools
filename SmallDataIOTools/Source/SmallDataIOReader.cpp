@@ -176,10 +176,14 @@ void SmallDataIOReader::determine_file_structure()
     m_file_structure.num_blocks = block_counter;
 
     assert(m_file_structure.num_data_rows.size() ==
+               m_file_structure.num_blocks &&
            m_file_structure.num_header_rows.size() ==
+               m_file_structure.num_blocks &&
            m_file_structure.num_coords_columns.size() ==
+               m_file_structure.num_blocks &&
            m_file_structure.num_data_columns.size() ==
-           m_file_structure.num_columns.size() ==
+               m_file_structure.num_blocks &&
+           m_file_structure.num_columns.size() == m_file_structure.num_blocks &&
            m_file_structure.block_starts.size() == m_file_structure.num_blocks);
 
     m_structure_defined = true;

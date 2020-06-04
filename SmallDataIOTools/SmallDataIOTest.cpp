@@ -18,17 +18,31 @@
 
 int main(int argc, char *argv[])
 {
-    if (argc != 2)
+    if (argc != 3)
     {
         std::cout << "Usage: " << argv[0] << " "
-                  << "</path/to/prefix>" << std::endl;
+                  << "/path/to/prefix \"surface1 surface2...\"" << std::endl;
         return 0;
     }
 
     using Clock = std::chrono::steady_clock;
 
     SurfaceExtractionData extraction_data(argv[1]);
-    extraction_data.determine_data_structure();
+    std::string surface_index_str(argv[2]);
+    std::stringstream surface_index_ss(surface_index_str);
+    std::set<int> surface_indices;
+    std::cout << "Surface indices: ";
+    int surface_index;
+    if (!surface_index_str.empty())
+    {
+        while (surface_index_ss >> surface_index)
+        {
+            std::cout << " " << surface_index;
+            surface_indices.insert(surface_index);
+        }
+    }
+    std::cout << std::endl;
+    extraction_data.determine_data_structure(surface_indices);
 
     auto start_read = Clock::now();
     // std::cout << "Reading in data:\n";

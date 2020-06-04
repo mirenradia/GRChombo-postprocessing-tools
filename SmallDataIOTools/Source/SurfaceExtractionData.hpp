@@ -15,6 +15,7 @@
 #include <functional>
 #include <limits>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -48,7 +49,8 @@ class SurfaceExtractionData
     std::pair<double, double> m_time_limits;
     int m_num_datasets;
     int m_num_surfaces;
-    std::vector<double> m_surface_param_values;
+    std::map<int, double>
+        m_surfaces; // pairs of {surface_index_in_file, param_value}
     int m_num_steps;
     int m_num_points_u;
     int m_num_points_v;
@@ -61,8 +63,9 @@ class SurfaceExtractionData
     // Determines the structure of data i.e.
     // how many datasets, number of points in u, number of points in v,
     // number of timesteps, min and max times, dt
+    // If a_surface_indices is an empty set, all surfaces are extracted
     void determine_data_structure(
-        int a_min_grchombo_step = 0,
+        std::set<int> a_surface_indices, int a_min_grchombo_step = 0,
         int a_max_grchombo_step = std::numeric_limits<int>::max());
 
     // resize a surface_data_t object to the appropriate size
@@ -114,6 +117,7 @@ class SurfaceExtractionData
     void integrate_surface(
         multisurface_value_t &out, const multisurface_multidata_t &in_data,
         const integrand_t &a_integrand, const SurfaceGeometry &a_geom,
+        bool a_use_area_element = true,
         const IntegrationMethod &a_method_u = IntegrationMethod::trapezium,
         const IntegrationMethod &a_method_v =
             IntegrationMethod::trapezium) const;
@@ -124,7 +128,7 @@ class SurfaceExtractionData
     void integrate_surface(
         time_multisurface_value_t &out, const extracted_data_t &in_data,
         const integrand_t &a_integrand, const SurfaceGeometry &a_geom,
-        int a_min_step, int a_max_step,
+        int a_min_step, int a_max_step, bool a_use_area_element = true,
         const IntegrationMethod &a_method_u = IntegrationMethod::trapezium,
         const IntegrationMethod &a_method_v =
             IntegrationMethod::trapezium) const;
