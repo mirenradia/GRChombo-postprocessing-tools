@@ -5,7 +5,6 @@
 
 #include "SurfaceExtractionData.hpp"
 #include <cassert>
-#include <iostream>
 #include <iterator>
 #include <numeric>
 
@@ -99,8 +98,8 @@ void SurfaceExtractionData::determine_data_structure(
 
     // the u_coords will have blocks of length num_points_v where all the
     // elements are the same.
-    std::vector<double> u_coords = std::move(
-        m_file_reader.get_column(first_column, m_surfaces.begin()->first));
+    std::vector<double> u_coords =
+        m_file_reader.get_column(first_column, m_surfaces.begin()->first);
     int iv = 0;
     while (u_coords[++iv] == u_coords[0])
         ;
@@ -200,8 +199,8 @@ void SurfaceExtractionData::read_data()
         {
             auto surface_it = m_surfaces.begin();
             std::advance(surface_it, isurface);
-            auto read_data = std::move(
-                m_file_reader.get_all_data_columns(surface_it->first));
+            auto read_data =
+                m_file_reader.get_all_data_columns(surface_it->first);
             for (int idataset = 0; idataset < m_num_datasets; ++idataset)
             {
                 for (int iu = 0; iu < m_num_points_u; ++iu)
@@ -489,6 +488,53 @@ void SurfaceExtractionData::integrate_time(
             return;
         }
     }
+}
+
+SurfaceExtractionData::surface_multidata_t SurfaceExtractionData::combine(
+    const SurfaceExtractionData::surface_multidata_t &a,
+    const SurfaceExtractionData::surface_multidata_t &b)
+{
+    surface_multidata_t out;
+    const int num_datasets_a = a.size();
+    const int num_datasets_b = b.size();
+    const int num_datasets_out = num_datasets_a + num_datasets_b;
+    out.resize(num_datasets_out);
+    for (int idataset = 0; idataset < num_datasets_a; ++idataset)
+    {
+        out[idataset] = a[idataset];
+    }
+    for (int idataset = 0; idataset < num_datasets_b; ++idataset)
+    {
+        int idataset_out = idataset + num_datasets_a;
+        out[idataset_out] = b[idataset];
+    }
+    return out;
+}
+
+SurfaceExtractionData::multisurface_multidata_t SurfaceExtractionData::combine(
+    const SurfaceExtractionData::multisurface_multidata_t &a,
+    const SurfaceExtractionData::multisurface_multidata_t &b)
+{
+    multisurface_multidata_t out;
+    out.resize(m_num_surfaces);
+    for (int isurface = 0; isurface < m_num_surfaces; ++isurface)
+    {
+        out[isurface] = combine(a[isurface], b[isurface]);
+    }
+    return out;
+}
+
+SurfaceExtractionData::extracted_data_t
+SurfaceExtractionData::combine(const SurfaceExtractionData::extracted_data_t &a,
+                               const SurfaceExtractionData::extracted_data_t &b)
+{
+    extracted_data_t out;
+    out.resize(m_num_steps);
+    for (int istep = 0; istep < m_num_steps; ++istep)
+    {
+        out[istep] = combine(a[istep], b[istep]);
+    }
+    return out;
 }
 
 void SurfaceExtractionData::clear()

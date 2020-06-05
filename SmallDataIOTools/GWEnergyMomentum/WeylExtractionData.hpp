@@ -133,7 +133,7 @@ class WeylExtractionData : public SurfaceExtractionData
             {
                 integrate_surface(m_momentum_flux[idir], m_time_integrated_data,
                                   momentum_integrands[idir], m_geom, 0,
-                                  use_area_element, m_num_steps - 1,
+                                  m_num_steps - 1, use_area_element,
                                   IntegrationMethod::simpson);
             }
         }
@@ -159,6 +159,115 @@ class WeylExtractionData : public SurfaceExtractionData
         {
             // integrate Weyl4 in time twice (does nothing if done already)
             integrate_time_twice();
+            auto d1_time_twice_integrated_data = compute_surface_derivatives(
+                m_time_twice_integrated_data, m_geom);
+            // this object will have dataset indices:
+            // IWeyl4_Re IWeyl4_Im IIWeyl4_Re IIWeyl4_Im
+            // du_IIWeyl4_Re dv_IIWeyl4_Re du_IIWeyl4_Im dv_IIWeyl4_Im
+            // where I is a time integration and du and dv are derivatives wrt
+            // theta and phi respectively
+            auto combined_data = combine(
+                combine(m_time_integrated_data, m_time_twice_integrated_data),
+                d1_time_twice_integrated_data);
+
+            // angular_momentum integrands including area elements
+            auto angular_momentum_integrand_x =
+                [](std::vector<double> combined_data_here, double r,
+                   double theta, double phi) {
+                    const double &IWeyl4_Re = combined_data_here[0];
+                    const double &IWeyl4_Im = combined_data_here[1];
+                    const double &IIWeyl4_Re = combined_data_here[2];
+                    const double &IIWeyl4_Im = combined_data_here[3];
+                    const double &dtheta_IIWeyl4_Re = combined_data_here[4];
+                    const double &dphi_IIWeyl4_Re = combined_data_here[5];
+                    const double &dtheta_IIWeyl4_Im = combined_data_here[6];
+                    const double &dphi_IIWeyl4_Im = combined_data_here[7];
+                    // spin weight
+                    constexpr int s = -2;
+
+                    // include sin(theta) from area element to remove
+                    // singularities - expressions from Alcubierre p312
+                    const double J_x_Re =
+                        -std::sin(phi) * std::sin(theta) * dtheta_IIWeyl4_Re -
+                        std::cos(phi) * (std::cos(theta) * dphi_IIWeyl4_Re -
+                                         s * IIWeyl4_Im);
+                    const double J_x_Im =
+                        -std::sin(phi) * std::sin(theta) * dtheta_IIWeyl4_Im -
+                        std::cos(phi) * (std::cos(theta) * dphi_IIWeyl4_Im -
+                                         s * IIWeyl4_Re);
+
+                    // only need real part
+                    const double integrand =
+                        -r * r * (IWeyl4_Re * J_x_Re + IWeyl4_Im * J_x_Im) /
+                        (16.0 * M_PI);
+                    return integrand;
+                };
+            auto angular_momentum_integrand_y =
+                [](std::vector<double> combined_data_here, double r,
+                   double theta, double phi) {
+                    const double &IWeyl4_Re = combined_data_here[0];
+                    const double &IWeyl4_Im = combined_data_here[1];
+                    const double &IIWeyl4_Re = combined_data_here[2];
+                    const double &IIWeyl4_Im = combined_data_here[3];
+                    const double &dtheta_IIWeyl4_Re = combined_data_here[4];
+                    const double &dphi_IIWeyl4_Re = combined_data_here[5];
+                    const double &dtheta_IIWeyl4_Im = combined_data_here[6];
+                    const double &dphi_IIWeyl4_Im = combined_data_here[7];
+                    // spin weight
+                    constexpr int s = -2;
+
+                    // include sin(theta) from area element to remove
+                    // singularities - expressions from Alcubierre p312
+                    const double J_y_Re =
+                        std::cos(phi) * std::sin(theta) * dtheta_IIWeyl4_Re -
+                        std::sin(phi) * (std::cos(theta) * dphi_IIWeyl4_Re -
+                                         s * IIWeyl4_Im);
+                    const double J_y_Im =
+                        std::cos(phi) * std::sin(theta) * dtheta_IIWeyl4_Im -
+                        std::sin(phi) * (std::cos(theta) * dphi_IIWeyl4_Im -
+                                         s * IIWeyl4_Re);
+
+                    // only need real part
+                    const double integrand =
+                        -r * r * (IWeyl4_Re * J_y_Re + IWeyl4_Im * J_y_Im) /
+                        (16.0 * M_PI);
+                    return integrand;
+                };
+            auto angular_momentum_integrand_z =
+                [](std::vector<double> combined_data_here, double r,
+                   double theta, double phi) {
+                    const double &IWeyl4_Re = combined_data_here[0];
+                    const double &IWeyl4_Im = combined_data_here[1];
+                    const double &dphi_IIWeyl4_Re = combined_data_here[5];
+                    const double &dphi_IIWeyl4_Im = combined_data_here[7];
+                    // spin weight
+                    constexpr int s = -2;
+
+                    // expressions from Alcubierre p312
+                    const double J_z_Re = dphi_IIWeyl4_Re;
+                    const double J_z_Im = dphi_IIWeyl4_Im;
+
+                    // only need real part
+                    // put sin(theta) in now
+                    const double integrand =
+                        -r * r * std::sin(theta) *
+                        (IWeyl4_Re * J_z_Re + IWeyl4_Im * J_z_Im) /
+                        (16.0 * M_PI);
+                    return integrand;
+                };
+            const std::array<integrand_t, CH_SPACEDIM>
+                angular_momentum_integrands{angular_momentum_integrand_x,
+                                            angular_momentum_integrand_y,
+                                            angular_momentum_integrand_z};
+
+            bool use_area_element = false;
+            for (int idir = 0; idir < CH_SPACEDIM; ++idir)
+            {
+                integrate_surface(m_angular_momentum_flux[idir], combined_data,
+                                  angular_momentum_integrands[idir], m_geom, 0,
+                                  m_num_steps - 1, use_area_element,
+                                  IntegrationMethod::simpson);
+            }
         }
         m_angular_momentum_flux_computed = true;
     }

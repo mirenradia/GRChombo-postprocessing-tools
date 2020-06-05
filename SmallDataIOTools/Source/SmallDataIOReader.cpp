@@ -280,7 +280,7 @@ SmallDataIOReader::get_all_data_columns(int a_block)
 SmallDataIOReader::column_t SmallDataIOReader::get_column(int a_column,
                                                           int a_block)
 {
-    auto out_vect = std::move(get_columns(a_column, a_column, a_block));
+    auto out_vect = get_columns(a_column, a_column, a_block);
     return out_vect[0];
 }
 

@@ -107,6 +107,53 @@ class SurfaceExtractionData
                         const time_multisurface_value_t &in_data,
                         int a_min_step, int a_max_step) const;
 
+    // Combine two surface_multidata_ts together so that all the datasets in the
+    // inputs can be accessed in the returned surface_multidata_t
+    surface_multidata_t combine(const surface_multidata_t &a,
+                                const surface_multidata_t &b);
+
+    // Combine two multisurface_multidata_ts (i.e. apply the above function for
+    // every surface)
+    multisurface_multidata_t combine(const multisurface_multidata_t &a,
+                                     const multisurface_multidata_t &b);
+
+    // Combine two extracted_data_ts (i.e. apply the above function for every
+    // step)
+    extracted_data_t combine(const extracted_data_t &a,
+                             const extracted_data_t &b);
+
+    // Calculate both surface derivatives of a surface_data_t at each point on
+    // the surface and return in a new surface_multidata_t
+    // Uses second order stencils
+    template <typename SurfaceGeometry>
+    surface_multidata_t
+    compute_surface_derivatives(const surface_data_t &in_data,
+                                const SurfaceGeometry &a_geom) const;
+
+    // Calculate both surface derivatives of all datasets in a
+    // surface_multidata_t at each point on the surface and return in a new
+    // surface_multidata_t Uses second order stencils
+    template <typename SurfaceGeometry>
+    surface_multidata_t
+    compute_surface_derivatives(const surface_multidata_t &in_data,
+                                const SurfaceGeometry &a_geom) const;
+
+    // Calculate both surface derivatives of all datasets on all surfaces in a
+    // multisurface_multidata_t at each point on each surface in and return in a
+    // new multisurface_multidata_t
+    template <typename SurfaceGeometry>
+    multisurface_multidata_t
+    compute_surface_derivatives(const multisurface_multidata_t &in_data,
+                                const SurfaceGeometry &a_geom) const;
+
+    // Calculate both surface derivatives of all datasets on all surfaces for
+    // each step in a multisurface_multidata_t at each point on each surface in
+    // and return in a new multisurface_multidata_t
+    template <typename SurfaceGeometry>
+    extracted_data_t
+    compute_surface_derivatives(const extracted_data_t &in_data,
+                                const SurfaceGeometry &a_geom) const;
+
     // this is the type used for integrands on the surface, the vector<double>
     // is a vector of all the datasets at the point on the surface.
     using integrand_t =
