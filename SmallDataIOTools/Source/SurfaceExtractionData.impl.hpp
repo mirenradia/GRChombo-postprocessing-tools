@@ -11,6 +11,7 @@
 #define SURFACEEXTRACTIONDATA_IMPL_HPP
 
 #include <cassert>
+#include <iomanip>
 #include <iostream>
 
 template <typename SurfaceGeometry>
@@ -179,12 +180,14 @@ SurfaceExtractionData::compute_surface_derivatives(
             {
                 std::cout << "SurfaceExtractionData::compute_surface_"
                              "derivatives: Step "
-                          << istep << "/" << m_num_steps - 1 << "\r";
+                          << std::setw(6) << istep << "/" << m_num_steps - 1
+                          << "\r";
                 std::cout << std::flush;
             }
         }
         out[istep] = compute_surface_derivatives(in_data[istep], a_geom);
     }
+    std::cout << "\n";
     return out;
 }
 
@@ -202,7 +205,7 @@ void SurfaceExtractionData::integrate_surface(
     std::fill(out.begin(), out.end(), 0.0);
     for (int isurface = 0; isurface < m_num_surfaces; ++isurface)
     {
-        const auto surface_it = m_surfaces.begin();
+        auto surface_it = m_surfaces.begin();
         std::advance(surface_it, isurface);
         double surface_param_value = surface_it->second;
         for (int iu = 0; iu < m_num_points_u; ++iu)
@@ -225,12 +228,12 @@ void SurfaceExtractionData::integrate_surface(
                 double integrand_with_area_element =
                     a_integrand(data_here, surface_param_value, u, v) *
                     area_element;
-                double weight =
-                    a_method_v.weight(iv, m_num_points_v, a_geom.is_periodic());
+                double weight = a_method_v.weight(iv, m_num_points_v,
+                                                  a_geom.is_v_periodic());
                 inner_integral += weight * dv * integrand_with_area_element;
             }
             double weight =
-                a_method_u.weight(iu, m_num_points_u, a_geom.is_periodic());
+                a_method_u.weight(iu, m_num_points_u, a_geom.is_u_periodic());
             out[isurface] += weight * du * inner_integral;
         }
     }
@@ -250,8 +253,9 @@ void SurfaceExtractionData::integrate_surface(
     out.clear();
     out.resize(num_steps);
 #ifdef _OPENMP
-#pragma omp parallel for default(none) shared(                                 \
-    out, in_data, a_integrand, a_geom, a_method_u, a_method_v, std::cout)
+#pragma omp parallel for default(none)                                         \
+    shared(out, in_data, a_integrand, a_geom, a_min_step, a_max_step,          \
+           num_steps, a_use_area_element, a_method_u, a_method_v, std::cout)
 #endif
     for (int istep = a_min_step; istep <= a_max_step; ++istep)
     {
@@ -263,13 +267,15 @@ void SurfaceExtractionData::integrate_surface(
 #endif /* _OPENMP */
             {
                 std::cout << "SurfaceExtractionData::integrate_surface: Step "
-                          << istep << "/" << num_steps - 1 << "\r";
+                          << std::setw(6) << istep << "/" << num_steps - 1
+                          << "\r";
                 std::cout << std::flush;
             }
         }
         integrate_surface(out[istep], in_data[istep], a_integrand, a_geom,
                           a_use_area_element, a_method_u, a_method_v);
     }
+    std::cout << "\n";
 }
 
 #endif /* SURFACEEXTRACTIONDATA_IMPL_HPP */

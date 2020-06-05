@@ -193,7 +193,7 @@ void SurfaceExtractionData::read_data()
         std::advance(filesit, istep);
         m_file_reader.open(filesit->second);
         std::cout << "SurfaceExtractionData::read_data: Reading data from step "
-                  << istep << "/" << m_num_steps << "\r";
+                  << std::setw(6) << istep << "/" << m_num_steps - 1 << "\r";
         m_file_reader.set_file_structure(m_file_structure);
         for (int isurface = 0; isurface < m_num_surfaces; ++isurface)
         {
@@ -215,7 +215,7 @@ void SurfaceExtractionData::read_data()
         }
         m_file_reader.close();
     }
-    std::cout << "Finished reading data                                    \n";
+    std::cout << "\n";
     long unsigned int memory_count =
         sizeof(m_data[0][0][0][0][0]) * m_num_datasets * m_num_surfaces *
         m_num_steps * m_num_points_u * m_num_points_v;
@@ -395,12 +395,14 @@ void SurfaceExtractionData::integrate_all_time(
 #endif /* _OPENMP */
             {
                 std::cout << "SurfaceExtractionData::integrate_all_time: Step "
-                          << istep << "/" << m_num_steps - 1 << "\r";
+                          << std::setw(6) << istep << "/" << m_num_steps - 1
+                          << "\r";
                 std::cout << std::flush;
             }
         }
         integrate_time(out[istep], in_data, 0, istep);
     }
+    std::cout << "\n";
 }
 
 void SurfaceExtractionData::integrate_time(

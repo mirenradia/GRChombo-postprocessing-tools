@@ -46,8 +46,8 @@ class WeylExtractionData : public SurfaceExtractionData
         if (!m_time_integrated_once)
         {
             integrate_all_time(m_time_integrated_data, m_data);
+            m_time_integrated_once = true;
         }
-        m_time_integrated_once = true;
     }
 
     void integrate_time_twice()
@@ -59,8 +59,8 @@ class WeylExtractionData : public SurfaceExtractionData
         {
             integrate_all_time(m_time_twice_integrated_data,
                                m_time_integrated_data);
+            m_time_integrated_twice = true;
         }
-        m_time_integrated_twice = true;
     }
 
   public:
@@ -82,8 +82,23 @@ class WeylExtractionData : public SurfaceExtractionData
             integrate_surface(m_power, m_time_integrated_data, power_integrand,
                               m_geom, 0, m_num_steps - 1, use_area_element,
                               IntegrationMethod::simpson);
+            m_power_computed = true;
         }
-        m_power_computed = true;
+    }
+
+    void print_energy()
+    {
+        std::cout << "Total energy radiated: \n";
+        for (int isurface = 0; isurface < m_num_surfaces; ++isurface)
+        {
+            auto surface_it = m_surfaces.begin();
+            std::advance(surface_it, isurface);
+            std::cout << std::fixed << std::setprecision(2)
+                      << "at r = " << surface_it->second << ": ";
+            std::cout << std::scientific
+                      << std::setprecision(m_file_structure.data_width - 10)
+                      << m_total_energy[isurface] << "\n";
+        }
     }
 
     void compute_energy()
@@ -93,6 +108,9 @@ class WeylExtractionData : public SurfaceExtractionData
 
         // integrate in time
         integrate_time(m_total_energy, m_power, 0, m_num_steps - 1);
+
+        // print result
+        print_energy();
     }
 
     void compute_momentum_flux()
@@ -136,8 +154,27 @@ class WeylExtractionData : public SurfaceExtractionData
                                   m_num_steps - 1, use_area_element,
                                   IntegrationMethod::simpson);
             }
+            m_momentum_flux_computed = true;
         }
-        m_momentum_flux_computed = true;
+    }
+
+    void print_momentum()
+    {
+        std::cout << "Total momentum radiated: \n";
+        for (int isurface = 0; isurface < m_num_surfaces; ++isurface)
+        {
+            auto surface_it = m_surfaces.begin();
+            std::advance(surface_it, isurface);
+            std::cout << std::fixed << std::setprecision(2)
+                      << "at r = " << surface_it->second << ": ";
+            for (int idir = 0; idir < CH_SPACEDIM; ++idir)
+            {
+                std::cout << std::scientific
+                          << std::setprecision(m_file_structure.data_width - 10)
+                          << m_total_momentum[idir][isurface] << " ";
+            }
+            std::cout << "\n";
+        }
     }
 
     void compute_momentum()
@@ -151,6 +188,9 @@ class WeylExtractionData : public SurfaceExtractionData
             integrate_time(m_total_momentum[idir], m_momentum_flux[idir], 0,
                            m_num_steps - 1);
         }
+
+        // print momentum
+        print_momentum();
     }
 
     void compute_angular_momentum_flux()
@@ -268,8 +308,41 @@ class WeylExtractionData : public SurfaceExtractionData
                                   m_num_steps - 1, use_area_element,
                                   IntegrationMethod::simpson);
             }
+            m_angular_momentum_flux_computed = true;
         }
-        m_angular_momentum_flux_computed = true;
+    }
+
+    void print_angular_momentum()
+    {
+        std::cout << "Total angular momentum radiated: \n";
+        for (int isurface = 0; isurface < m_num_surfaces; ++isurface)
+        {
+            auto surface_it = m_surfaces.begin();
+            std::advance(surface_it, isurface);
+            std::cout << std::fixed << std::setprecision(2)
+                      << "at r = " << surface_it->second << ": ";
+            for (int idir = 0; idir < CH_SPACEDIM; ++idir)
+            {
+                std::cout << std::scientific
+                          << std::setprecision(m_file_structure.data_width - 10)
+                          << m_total_angular_momentum[idir][isurface] << " ";
+            }
+            std::cout << "\n";
+        }
+    }
+
+    void compute_angular_momentum()
+    {
+        // compute flux (does nothing if done already)
+        compute_angular_momentum_flux();
+
+        // integrate in time
+        for (int idir = 0; idir < CH_SPACEDIM; ++idir)
+        {
+            integrate_time(m_total_angular_momentum[idir],
+                           m_angular_momentum_flux[idir], 0, m_num_steps - 1);
+        }
+        print_angular_momentum();
     }
 };
 
