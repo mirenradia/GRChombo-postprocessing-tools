@@ -6,6 +6,7 @@
 #ifndef WEYLEXTRACTIONDATA_HPP
 #define WEYLEXTRACTIONDATA_HPP
 
+#include "SmallDataIO.hpp"
 #include "SphericalGeometry.hpp"
 #include "SurfaceExtractionData.hpp"
 #include <array>
@@ -63,6 +64,184 @@ class WeylExtractionData : public SurfaceExtractionData
         }
     }
 
+    // write flux and time integrated values to a file
+    void write_data(const std::string &a_filename,
+                    const std::string &a_time_data_label,
+                    const time_multisurface_value_t &a_time_data,
+                    const std::string &a_single_data_label = "",
+                    const multisurface_value_t &a_single_data = {}) const
+    {
+        const double fake_time = 0.0;
+        // this will overwrite any existing files
+        const bool first_step = true;
+        SmallDataIO file(a_filename, m_dt, fake_time, fake_time,
+                         SmallDataIO::APPEND, true);
+
+        std::vector<std::string> header1_strings(m_num_surfaces,
+                                                 a_time_data_label);
+        std::vector<std::string> header2_strings(m_num_surfaces);
+        for (int isurface = 0; isurface < m_num_surfaces; ++isurface)
+        {
+            auto surface_it = m_surfaces.begin();
+            std::advance(surface_it, isurface);
+            header2_strings[isurface] = std::to_string(surface_it->second);
+        }
+        std::string pre_header2_string = m_geom.param_name() + " = ";
+
+        // write initial header lines
+        file.write_header_line(header1_strings);
+        file.write_header_line(header2_strings, pre_header2_string);
+
+        for (int istep = 0; istep < m_num_steps; ++istep)
+        {
+            double time = m_time_limits.first + istep * m_dt;
+            file.write_data_line(a_time_data[istep], time);
+        }
+
+        // write single data in a comment (header) line
+        if (a_single_data.size() == m_num_surfaces)
+        {
+            file.line_break();
+            std::vector<std::string> single_data_strs(m_num_surfaces);
+            char single_data_cstr[20];
+            std::string format =
+                "%." + std::to_string(m_file_structure.data_width - 10) + "e";
+            for (int isurface = 0; isurface < m_num_surfaces; ++isurface)
+            {
+                std::sprintf(single_data_cstr, format.c_str(),
+                             a_single_data[isurface]);
+                single_data_strs[isurface] = single_data_cstr;
+            }
+            file.write_header_line(single_data_strs, a_single_data_label);
+        }
+    }
+
+    void write_data(
+        const std::string &a_filename,
+        const std::array<std::string, CH_SPACEDIM> &a_time_data_labels,
+        const std::array<time_multisurface_value_t, CH_SPACEDIM> &a_time_data,
+        const std::string &a_single_data_label = "",
+        const std::array<multisurface_value_t, CH_SPACEDIM> &a_single_data = {})
+        const
+    {
+        const double fake_time = 0.0;
+        // this will overwrite any existing files
+        const bool first_step = true;
+        SmallDataIO file(a_filename, m_dt, fake_time, fake_time,
+                         SmallDataIO::APPEND, true);
+
+        std::vector<std::string> header1_strings(CH_SPACEDIM * m_num_surfaces);
+        std::vector<std::string> header2_strings(CH_SPACEDIM * m_num_surfaces);
+        for (int isurface = 0; isurface < m_num_surfaces; ++isurface)
+        {
+            for (int idir = 0; idir < CH_SPACEDIM; ++idir)
+            {
+                const int idx = isurface * CH_SPACEDIM + idir;
+                header1_strings[idx] = a_time_data_labels[idir];
+                auto surface_it = m_surfaces.begin();
+                std::advance(surface_it, isurface);
+                header2_strings[idx] = std::to_string(surface_it->second);
+            }
+        }
+        std::string pre_header2_string = m_geom.param_name() + " = ";
+
+        // write initial header lines
+        file.write_header_line(header1_strings);
+        file.write_header_line(header2_strings, pre_header2_string);
+
+        for (int istep = 0; istep < m_num_steps; ++istep)
+        {
+            std::vector<double> data_for_writing(CH_SPACEDIM * m_num_surfaces);
+            for (int isurface = 0; isurface < m_num_surfaces; ++isurface)
+            {
+                for (int idir = 0; idir < CH_SPACEDIM; ++idir)
+                {
+                    const int idx = isurface * CH_SPACEDIM + idir;
+                    data_for_writing[idx] = a_time_data[idir][istep][isurface];
+                }
+            }
+            double time = m_time_limits.first + istep * m_dt;
+            file.write_data_line(data_for_writing, time);
+        }
+
+        // write single data in a comment (header) line
+        if (a_single_data[0].size() == m_num_surfaces)
+        {
+            file.line_break();
+            std::vector<std::string> single_data_strs(CH_SPACEDIM *
+                                                      m_num_surfaces);
+            std::string format =
+                "%." + std::to_string(m_file_structure.data_width - 10) + "e\0";
+
+            for (int isurface = 0; isurface < m_num_surfaces; ++isurface)
+            {
+                for (int idir = 0; idir < CH_SPACEDIM; ++idir)
+                {
+                    char single_data_cstr[20];
+                    std::sprintf(single_data_cstr, "%.10e",
+                                 a_single_data[idir][isurface]);
+                    single_data_strs[isurface * CH_SPACEDIM + idir] =
+                        single_data_cstr;
+                }
+            }
+            file.write_header_line(single_data_strs, a_single_data_label);
+            std::cout << "\n";
+        }
+    }
+
+    void print_energy()
+    {
+        std::cout << "Total energy radiated: \n";
+        for (int isurface = 0; isurface < m_num_surfaces; ++isurface)
+        {
+            auto surface_it = m_surfaces.begin();
+            std::advance(surface_it, isurface);
+            std::cout << std::fixed << std::setprecision(2)
+                      << "at r = " << surface_it->second << ": ";
+            std::cout << std::scientific
+                      << std::setprecision(m_file_structure.data_width - 10)
+                      << m_total_energy[isurface] << "\n";
+        }
+    }
+
+    void print_momentum()
+    {
+        std::cout << "Total momentum radiated: \n";
+        for (int isurface = 0; isurface < m_num_surfaces; ++isurface)
+        {
+            auto surface_it = m_surfaces.begin();
+            std::advance(surface_it, isurface);
+            std::cout << std::fixed << std::setprecision(2)
+                      << "at r = " << surface_it->second << ": ";
+            for (int idir = 0; idir < CH_SPACEDIM; ++idir)
+            {
+                std::cout << std::scientific
+                          << std::setprecision(m_file_structure.data_width - 10)
+                          << m_total_momentum[idir][isurface] << " ";
+            }
+            std::cout << "\n";
+        }
+    }
+
+    void print_angular_momentum()
+    {
+        std::cout << "Total angular momentum radiated: \n";
+        for (int isurface = 0; isurface < m_num_surfaces; ++isurface)
+        {
+            auto surface_it = m_surfaces.begin();
+            std::advance(surface_it, isurface);
+            std::cout << std::fixed << std::setprecision(2)
+                      << "at r = " << surface_it->second << ": ";
+            for (int idir = 0; idir < CH_SPACEDIM; ++idir)
+            {
+                std::cout << std::scientific
+                          << std::setprecision(m_file_structure.data_width - 10)
+                          << m_total_angular_momentum[idir][isurface] << " ";
+            }
+            std::cout << "\n";
+        }
+    }
+
   public:
     void compute_power()
     {
@@ -86,21 +265,6 @@ class WeylExtractionData : public SurfaceExtractionData
         }
     }
 
-    void print_energy()
-    {
-        std::cout << "Total energy radiated: \n";
-        for (int isurface = 0; isurface < m_num_surfaces; ++isurface)
-        {
-            auto surface_it = m_surfaces.begin();
-            std::advance(surface_it, isurface);
-            std::cout << std::fixed << std::setprecision(2)
-                      << "at r = " << surface_it->second << ": ";
-            std::cout << std::scientific
-                      << std::setprecision(m_file_structure.data_width - 10)
-                      << m_total_energy[isurface] << "\n";
-        }
-    }
-
     void compute_energy()
     {
         // compute power if not done already
@@ -111,6 +275,9 @@ class WeylExtractionData : public SurfaceExtractionData
 
         // print result
         print_energy();
+
+        // write result to file
+        write_data("GW_power", "power", m_power, "energy = ", m_total_energy);
     }
 
     void compute_momentum_flux()
@@ -158,25 +325,6 @@ class WeylExtractionData : public SurfaceExtractionData
         }
     }
 
-    void print_momentum()
-    {
-        std::cout << "Total momentum radiated: \n";
-        for (int isurface = 0; isurface < m_num_surfaces; ++isurface)
-        {
-            auto surface_it = m_surfaces.begin();
-            std::advance(surface_it, isurface);
-            std::cout << std::fixed << std::setprecision(2)
-                      << "at r = " << surface_it->second << ": ";
-            for (int idir = 0; idir < CH_SPACEDIM; ++idir)
-            {
-                std::cout << std::scientific
-                          << std::setprecision(m_file_structure.data_width - 10)
-                          << m_total_momentum[idir][isurface] << " ";
-            }
-            std::cout << "\n";
-        }
-    }
-
     void compute_momentum()
     {
         // compute momentum flux (does nothing if done already)
@@ -191,6 +339,10 @@ class WeylExtractionData : public SurfaceExtractionData
 
         // print momentum
         print_momentum();
+
+        // write data
+        write_data("GW_momentum_flux", {"x flux", "y flux", "z flux"},
+                   m_momentum_flux, "total = ", m_total_momentum);
     }
 
     void compute_angular_momentum_flux()
@@ -312,25 +464,6 @@ class WeylExtractionData : public SurfaceExtractionData
         }
     }
 
-    void print_angular_momentum()
-    {
-        std::cout << "Total angular momentum radiated: \n";
-        for (int isurface = 0; isurface < m_num_surfaces; ++isurface)
-        {
-            auto surface_it = m_surfaces.begin();
-            std::advance(surface_it, isurface);
-            std::cout << std::fixed << std::setprecision(2)
-                      << "at r = " << surface_it->second << ": ";
-            for (int idir = 0; idir < CH_SPACEDIM; ++idir)
-            {
-                std::cout << std::scientific
-                          << std::setprecision(m_file_structure.data_width - 10)
-                          << m_total_angular_momentum[idir][isurface] << " ";
-            }
-            std::cout << "\n";
-        }
-    }
-
     void compute_angular_momentum()
     {
         // compute flux (does nothing if done already)
@@ -343,6 +476,11 @@ class WeylExtractionData : public SurfaceExtractionData
                            m_angular_momentum_flux[idir], 0, m_num_steps - 1);
         }
         print_angular_momentum();
+
+        // write data
+        write_data("GW_angular_momentum_flux", {"x flux", "y flux", "z flux"},
+                   m_angular_momentum_flux,
+                   "total = ", m_total_angular_momentum);
     }
 };
 

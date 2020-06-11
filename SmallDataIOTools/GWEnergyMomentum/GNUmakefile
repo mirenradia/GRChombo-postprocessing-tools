@@ -13,7 +13,8 @@ ebase := GWEnergyMomentum
 LibNames := BaseTools
 
 src_dirs := ../Source \
-            $(GRCHOMBO_SOURCE)/AMRInterpolator
+            $(GRCHOMBO_SOURCE)/AMRInterpolator \
+            $(GRCHOMBO_SOURCE)/utils
 
 # Filesystem library is a C++17 feature
 XTRACXXFLAGS := $(XTRACXXFLAGS) -std=c++17
