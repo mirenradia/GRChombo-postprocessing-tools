@@ -276,8 +276,13 @@ class WeylExtractionData : public SurfaceExtractionData
         // print result
         print_energy();
 
+        // write data to same directory as prefix_path
+        std::filesystem::path prefix_path(m_file_prefix);
+        std::string parent_path = prefix_path.parent_path();
+
         // write result to file
-        write_data("GW_power", "power", m_power, "energy = ", m_total_energy);
+        write_data(parent_path + "/GW_power", "power", m_power,
+                   "energy = ", m_total_energy);
     }
 
     void compute_momentum_flux()
@@ -340,9 +345,14 @@ class WeylExtractionData : public SurfaceExtractionData
         // print momentum
         print_momentum();
 
+        // write data to same directory as prefix_path
+        std::filesystem::path prefix_path(m_file_prefix);
+        std::string parent_path = prefix_path.parent_path();
+
         // write data
-        write_data("GW_momentum_flux", {"x flux", "y flux", "z flux"},
-                   m_momentum_flux, "total = ", m_total_momentum);
+        write_data(parent_path + "/GW_momentum_flux",
+                   {"x flux", "y flux", "z flux"}, m_momentum_flux,
+                   "total = ", m_total_momentum);
     }
 
     void compute_angular_momentum_flux()
@@ -477,9 +487,13 @@ class WeylExtractionData : public SurfaceExtractionData
         }
         print_angular_momentum();
 
+        // write data to same directory as prefix_path
+        std::filesystem::path prefix_path(m_file_prefix);
+        std::string parent_path = prefix_path.parent_path();
+
         // write data
-        write_data("GW_angular_momentum_flux", {"x flux", "y flux", "z flux"},
-                   m_angular_momentum_flux,
+        write_data(parent_path + "/GW_angular_momentum_flux",
+                   {"x flux", "y flux", "z flux"}, m_angular_momentum_flux,
                    "total = ", m_total_angular_momentum);
     }
 };
