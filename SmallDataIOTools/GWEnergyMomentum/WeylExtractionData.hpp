@@ -213,13 +213,19 @@ class WeylExtractionData : public SurfaceExtractionData
             std::advance(surface_it, isurface);
             std::cout << std::fixed << std::setprecision(2)
                       << "at r = " << surface_it->second << ": ";
+            double total_momentum_norm_sq = 0.0;
             for (int idir = 0; idir < CH_SPACEDIM; ++idir)
             {
                 std::cout << std::scientific
                           << std::setprecision(m_file_structure.data_width - 10)
                           << m_total_momentum[idir][isurface] << " ";
+                total_momentum_norm_sq += m_total_momentum[idir][isurface] *
+                                          m_total_momentum[idir][isurface];
             }
-            std::cout << "\n";
+            double total_momentum_norm = sqrt(total_momentum_norm_sq);
+            std::cout << "norm = " << std::scientific
+                      << std::setprecision(m_file_structure.data_width - 10)
+                      << total_momentum_norm << "\n";
         }
     }
 
@@ -232,13 +238,21 @@ class WeylExtractionData : public SurfaceExtractionData
             std::advance(surface_it, isurface);
             std::cout << std::fixed << std::setprecision(2)
                       << "at r = " << surface_it->second << ": ";
+            double total_angular_momentum_norm_sq = 0.0;
             for (int idir = 0; idir < CH_SPACEDIM; ++idir)
             {
                 std::cout << std::scientific
                           << std::setprecision(m_file_structure.data_width - 10)
                           << m_total_angular_momentum[idir][isurface] << " ";
+                total_angular_momentum_norm_sq +=
+                    m_total_angular_momentum[idir][isurface] *
+                    m_total_angular_momentum[idir][isurface];
             }
-            std::cout << "\n";
+            double total_angular_momentum_norm =
+                sqrt(total_angular_momentum_norm_sq);
+            std::cout << "norm = " << std::scientific
+                      << std::setprecision(m_file_structure.data_width - 10)
+                      << total_angular_momentum_norm << "\n";
         }
     }
 
