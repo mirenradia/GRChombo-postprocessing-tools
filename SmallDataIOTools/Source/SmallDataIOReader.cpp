@@ -79,6 +79,7 @@ void SmallDataIOReader::determine_file_structure()
     int consecutive_empty_line_count = 2;
     int block_counter = 0; // assume we always have one block
     int current_position = m_file.tellg();
+    int block_start_position = current_position;
     int header_row_counter = 0;
     int data_row_counter = 0;
     while (std::getline(m_file, line))
@@ -88,8 +89,7 @@ void SmallDataIOReader::determine_file_structure()
             if (consecutive_empty_line_count == 2)
             {
                 // start of new block
-                ++block_counter;
-                m_file_structure.block_starts.push_back(current_position);
+                block_start_position = current_position;
             }
             consecutive_empty_line_count = 0;
 
@@ -100,6 +100,10 @@ void SmallDataIOReader::determine_file_structure()
             {
                 if (data_row_counter++ == 0)
                 {
+                    // only count a new block if it contains a data row
+                    m_file_structure.block_starts.push_back(
+                        block_start_position);
+                    ++block_counter;
                     // determine column structure from first data row in block
                     // get a vector of the widths of the columns including
                     // preceeding whitespace
@@ -165,7 +169,7 @@ void SmallDataIOReader::determine_file_structure()
         current_position = m_file.tellg();
     }
     // Just in case the file ends without a line break:
-    if (header_row_counter > 0 || data_row_counter > 0)
+    if (data_row_counter > 0)
     {
         m_file_structure.num_header_rows.push_back(header_row_counter);
         m_file_structure.num_data_rows.push_back(data_row_counter);

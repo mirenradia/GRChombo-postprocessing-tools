@@ -8,12 +8,12 @@
 
 GRCHOMBO_SOURCE ?= ../../../GRChombo/Source
 
-ebase := GWEnergyMomentum
+ebase := IntegrateTime
 
 LibNames := BaseTools
 
 src_dirs := ../Source \
-            ../Source/SurfaceExtractionData \
+            ../Source/TimeData \
             $(GRCHOMBO_SOURCE)/AMRInterpolator \
             $(GRCHOMBO_SOURCE)/utils
 
