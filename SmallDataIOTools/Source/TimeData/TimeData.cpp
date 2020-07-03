@@ -158,19 +158,6 @@ void TimeData::integrate_all_time(time_multidata_t &out,
 #endif
     for (int istep = 0; istep < m_num_steps; ++istep)
     {
-        // print every 100 iterations
-        if (istep % 100 == 0)
-        {
-#ifdef _OPENMP
-#pragma omp critical(print)
-#endif /* _OPENMP */
-            {
-                std::cout << "TimeData::integrate_all_time: Step "
-                          << std::setw(6) << istep << "/" << m_num_steps - 1
-                          << "\r";
-                std::cout << std::flush;
-            }
-        }
         const auto integrals = integrate_time(in_data, 0, istep);
         for (int idataset = 0; idataset < in_data.size(); ++idataset)
         {
