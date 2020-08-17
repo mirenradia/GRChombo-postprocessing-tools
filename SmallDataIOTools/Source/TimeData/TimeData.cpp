@@ -5,6 +5,7 @@
 
 #include "TimeData.hpp"
 #include <cassert>
+#include <cmath>
 #include <iomanip>
 #include <iostream>
 
@@ -174,6 +175,37 @@ void TimeData::integrate_all_time(time_data_t &out,
 
     integrate_all_time(out_vect, in_data_vect);
     out = std::move(out_vect[0]);
+}
+
+TimeData::time_multidata_t TimeData::norm(const time_multidata_t &in_data,
+                                          const int a_dim)
+{
+    const int num_columns_in = in_data.size();
+    assert((num_columns_in > 0) && (num_columns_in % a_dim == 0));
+    const int num_columns_out = num_columns_in / a_dim;
+    const int num_steps = in_data[0].size();
+
+    time_multidata_t out(num_columns_out);
+    for (auto &time_data : out)
+    {
+        time_data.resize(num_steps);
+    }
+
+    for (int icol = 0; icol < num_columns_out; ++icol)
+    {
+        for (int istep = 0; istep < num_steps; ++istep)
+        {
+            double norm2 = 0.;
+            for (int idir = 0; idir < a_dim; ++idir)
+            {
+                int icol_in = a_dim * icol + idir;
+                norm2 += in_data[icol_in][istep] * in_data[icol_in][istep];
+            }
+            double norm = std::sqrt(norm2);
+            out[icol][istep] = norm;
+        }
+    }
+    return out;
 }
 
 void TimeData::clear()

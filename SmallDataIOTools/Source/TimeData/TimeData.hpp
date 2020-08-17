@@ -72,6 +72,11 @@ class TimeData
     void integrate_all_time(time_multidata_t &out,
                             const time_multidata_t &in_data) const;
 
+    // Take the norm of a_dim dimensional data
+    // assumes that columns are of the form,
+    // data1[0], ..., data1[a_dim - 1], data2[0], ..., data2[a_dim - 1], ...
+    time_multidata_t norm(const time_multidata_t &in_data, const int a_dim = 3);
+
     // Clear all data and file information
     void clear();
 

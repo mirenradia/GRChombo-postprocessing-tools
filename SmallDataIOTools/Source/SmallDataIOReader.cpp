@@ -215,8 +215,9 @@ SmallDataIOReader::get_columns(int a_min_column, int a_max_column, int a_block)
 {
     assert(m_file.is_open());
     assert(m_structure_defined);
-    assert(0 <= a_min_column <= a_max_column <
-           m_file_structure.num_columns[a_block]);
+    assert((0 <= a_min_column) &&
+           (a_max_column < m_file_structure.num_columns[a_block]) &&
+           (a_min_column <= a_max_column));
     const int num_columns = a_max_column - a_min_column + 1;
     std::vector<column_t> out(num_columns);
     for (auto &column : out)
