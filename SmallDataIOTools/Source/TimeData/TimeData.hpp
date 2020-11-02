@@ -47,6 +47,10 @@ class TimeData
     // Read data
     void read_data(const std::string &a_filename, int a_block = 0);
 
+    // Read data from header
+    std::vector<double> read_data_from_header(const int a_header_row_number,
+                                              const int a_block = 0);
+
     // Getters
     const time_multidata_t &get_data() const;
     double get_dt() const;
@@ -76,6 +80,11 @@ class TimeData
     // assumes that columns are of the form,
     // data1[0], ..., data1[a_dim - 1], data2[0], ..., data2[a_dim - 1], ...
     time_multidata_t norm(const time_multidata_t &in_data, const int a_dim = 3);
+
+    // Adds a value to every row in each column. The value to add to column i is
+    // given by the ith element of a_values_to_add
+    void add_to_columns(time_multidata_t &data,
+                        const std::vector<double> &a_values_to_add);
 
     // Clear all data and file information
     void clear();

@@ -49,6 +49,13 @@ void TimeData::read_data(const std::string &a_filename, int a_block)
     m_data_read = true;
 }
 
+std::vector<double>
+TimeData::read_data_from_header(const int a_header_row_number,
+                                const int a_block)
+{
+    return m_file_reader.get_data_from_header(a_header_row_number, a_block);
+}
+
 const TimeData::time_multidata_t &TimeData::get_data() const { return m_data; }
 double TimeData::get_dt() const { return m_dt; }
 const std::pair<double, double> &TimeData::get_time_limits() const
@@ -206,6 +213,21 @@ TimeData::time_multidata_t TimeData::norm(const time_multidata_t &in_data,
         }
     }
     return out;
+}
+
+void TimeData::add_to_columns(time_multidata_t &data,
+                              const std::vector<double> &a_values_to_add)
+{
+    const int num_columns = data.size();
+    const int num_steps = data[0].size();
+    assert(num_columns == a_values_to_add.size());
+    for (int icol = 0; icol < num_columns; ++icol)
+    {
+        for (int istep = 0; istep < num_steps; ++istep)
+        {
+            data[icol][istep] += a_values_to_add[icol];
+        }
+    }
 }
 
 void TimeData::clear()
