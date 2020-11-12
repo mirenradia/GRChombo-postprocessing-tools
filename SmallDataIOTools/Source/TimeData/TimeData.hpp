@@ -9,7 +9,6 @@
 #include "CH_assert.H"
 #include "IntegrationMethod.hpp"
 #include "SmallDataIOReader.hpp"
-#include <filesystem>
 #include <string>
 #include <vector>
 
