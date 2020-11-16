@@ -1,6 +1,6 @@
 IDIR = ./Source
 CXX = g++
-CXXFLAGS = -I. -I$(IDIR) -std=c++17 -O3 -march=native -fopenmp -Wall -Wno-sign-compare
+CXXFLAGS = -g -I. -I$(IDIR) -std=c++17 -O3 -march=native -fopenmp -Wall -Wno-sign-compare
 EBASE = GWMomentumModes
 
 ODIR = o

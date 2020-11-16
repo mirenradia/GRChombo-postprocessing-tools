@@ -272,6 +272,17 @@ class WeylModeData
         return !missing_mode;
     }
 
+    // same as above but checks all m for single l
+    bool check_momentum_pmode_computable(const int l)
+    {
+        bool missing_pmode = false;
+        for (int m = -l; m <= l; ++m)
+        {
+            missing_pmode |= !check_momentum_pmode_computable(l, m);
+        }
+        return !missing_pmode;
+    }
+
     // computes Eqs (8.9.67-8.9.68) in Alcubierre
     time_multidata_t compute_momentum_flux_pmode(const int l, const int m,
                                                  const double r_ex)
@@ -295,7 +306,7 @@ class WeylModeData
         const double b_l1m1 = momentum_b_coeff(l + 1, m + 1);
         const double c_lm = momentum_c_coeff(l, m);
         const double d_lm = momentum_d_coeff(l, m);
-        const double d_l1m = momentum_d_coeff(l + 1, m + 1);
+        const double d_l1m = momentum_d_coeff(l + 1, m);
 
         constexpr int dim = 3;
         time_multidata_t out(dim * m_num_extraction_radii,
