@@ -4,6 +4,7 @@
  */
 
 #include "TimeData.hpp"
+#include "SmallDataIO.hpp"
 #include <cassert>
 #include <cmath>
 #include <iomanip>
@@ -213,6 +214,50 @@ TimeData::time_multidata_t TimeData::norm(const time_multidata_t &in_data,
         }
     }
     return out;
+}
+
+void TimeData::write_data(const std::string &a_filename_stem,
+                          const time_multidata_t &a_data,
+                          const std::vector<std::string> &a_header_strings,
+                          const int a_data_precision,
+                          const int a_time_precision)
+{
+    // these are redundant variables as we are using the SmallDataIO code from
+    // GRChombo
+    constexpr double fake_time = 0.0;
+    constexpr double first_step = true;
+
+    SmallDataIO file(a_filename_stem, m_dt, fake_time, fake_time,
+                     SmallDataIO::APPEND, first_step, ".dat", a_data_precision,
+                     a_time_precision);
+
+    const int num_columns = a_data.size();
+    assert(num_columns > 0 && a_data[0].size() == m_num_steps);
+
+    const int header_length = a_header_strings.size();
+    std::vector<std::string> full_header_strings(num_columns, "");
+    if (header_length > 0)
+    {
+        for (int icol = 0; icol < num_columns; ++icol)
+        {
+            full_header_strings[icol] = a_header_strings[icol % header_length];
+        }
+    }
+    // time is automatically in the first column
+    file.write_header_line(full_header_strings);
+
+    for (int istep = 0; istep < m_num_steps; ++istep)
+    {
+        double time = m_time_limits.first + istep * m_dt;
+        std::vector<double> data_for_writing(num_columns);
+        for (int icol = 0; icol < num_columns; ++icol)
+        {
+            data_for_writing[icol] = a_data[icol][istep];
+        }
+        // can't use write_time_data_line as this will write the time as
+        // fake_time
+        file.write_data_line(data_for_writing, time);
+    }
 }
 
 void TimeData::add_to_columns(time_multidata_t &data,

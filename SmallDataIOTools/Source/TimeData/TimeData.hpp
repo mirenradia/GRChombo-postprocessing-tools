@@ -8,6 +8,7 @@
 
 #include "CH_assert.H"
 #include "IntegrationMethod.hpp"
+#include "SmallDataIO.hpp"
 #include "SmallDataIOReader.hpp"
 #include <string>
 #include <vector>
@@ -79,6 +80,13 @@ class TimeData
     // assumes that columns are of the form,
     // data1[0], ..., data1[a_dim - 1], data2[0], ..., data2[a_dim - 1], ...
     time_multidata_t norm(const time_multidata_t &in_data, const int a_dim = 3);
+
+    // Write a time_multidata_t to a file
+    void write_data(const std::string &a_filename_stem,
+                    const time_multidata_t &a_data,
+                    const std::vector<std::string> &a_header_strings = {},
+                    const int a_data_precision = 10,
+                    const int a_time_precision = 7);
 
     // Adds a value to every row in each column. The value to add to column i is
     // given by the ith element of a_values_to_add

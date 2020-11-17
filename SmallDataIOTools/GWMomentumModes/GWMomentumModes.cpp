@@ -34,6 +34,8 @@ double extraction_radius = 1.0; // the default is 1.0 because GRChombo output is
 bool sum_over_m = false; // output the sum over m (fixed l) of pmodes rather
                          // than invidivual pmodes
 std::set<int> l_pmodes;  // values of l to output the sum over m pmodes for
+bool sum_over_l =
+    false; // also output partial sums over l for selected modes above
 } // namespace Options
 
 void print_help(char *argv[])
@@ -48,8 +50,10 @@ void print_help(char *argv[])
         << "                         in form \"l1 m1 l2 m2 ...\" or "
         << "\"all\"\n"
         << "                         default: all\n"
-        << "-l, --l_pmodes[=L_VALS]  values of l to sum up pmodes over m\n"
+        << "-l, --l-pmodes[=L_VALS]  values of l to sum up pmodes over m\n"
         << "                         argument omitted means all (default)\n"
+        << "-s, --sum-l              also write partial sums over l\n"
+        << "                         (implies -l)\n"
         << "-r, --radius R_EX        output is multiplied by (r_ex)^2\n"
         << "                         default: 1\n"
         << "-h, --help               print help\n";
@@ -58,10 +62,11 @@ void print_help(char *argv[])
 
 void process_args(int argc, char *argv[], std::string &input_filename_pattern)
 {
-    const char *const short_opts = "o:p:l::r:h";
+    const char *const short_opts = "o:p:l::sr:h";
     const option long_opts[] = {{"output", required_argument, nullptr, 'o'},
                                 {"pmodes", required_argument, nullptr, 'p'},
-                                {"l_pmodes", optional_argument, nullptr, 'l'},
+                                {"l-pmodes", optional_argument, nullptr, 'l'},
+                                {"sum-l", no_argument, nullptr, 's'},
                                 {"radius", required_argument, nullptr, 'r'},
                                 {"help", no_argument, nullptr, 'h'}};
 
@@ -109,6 +114,12 @@ void process_args(int argc, char *argv[], std::string &input_filename_pattern)
                     Options::l_pmodes.insert(l);
                 }
             }
+            break;
+        }
+        case 's':
+        {
+            Options::sum_over_m = true;
+            Options::sum_over_l = true;
             break;
         }
         case 'r':
@@ -162,9 +173,6 @@ int main(int argc, char *argv[])
     //    end_timer - start_timer;
     // std::cout << "Time taken = " << time_taken.count() << "s\n";
 
-    const double dt = weyl4_mode_data.m_time_data.get_dt();
-    const double min_time = weyl4_mode_data.m_time_data.get_time_limits().first;
-
     // only output individual pmodes if not asked to sum over m
     if (!Options::sum_over_m)
     {
@@ -199,80 +207,18 @@ int main(int argc, char *argv[])
                 weyl4_mode_data.m_time_data.integrate_all_time(pmode,
                                                                pmode_flux);
 
-                // don't bother taking the norm as it isn't very useful
-                // take the norm/magnitude of the cumulative radiated momeentum
-                // const auto pmode_norm =
-                // weyl4_mode_data.m_time_data.norm(pmode);
-
-                // write flux, cumulative and norm data to files
-                const int num_columns = pmode_flux.size();
-                constexpr int dim = 3;
-                const int num_extraction_radii = num_columns / dim;
-                const int num_steps = pmode_flux[0].size();
+                // write flux and cumulative data to files
                 std::string filename_suffix =
                     "l" + std::to_string(l) + "m" + std::to_string(m);
-                std::string flux_filename =
+                std::string flux_filename_stem =
                     Options::output_file_prefix + "flux_" + filename_suffix;
-                std::string cumulative_filename =
+                std::string cumulative_filename_stem =
                     Options::output_file_prefix + filename_suffix;
-                // std::string norm_filename =
-                //    Options::output_file_prefix + "norm_" + filename_suffix;
 
-                // redundant variables for the SmallDataIO constructor as this
-                // is ripped from GRChombo
-                constexpr double fake_time = 0.0;
-                constexpr double first_step = true;
-
-                // open files for writing
-                SmallDataIO flux_file(flux_filename, dt, fake_time, fake_time,
-                                      SmallDataIO::APPEND, first_step);
-                SmallDataIO cumulative_file(cumulative_filename, dt, fake_time,
-                                            fake_time, SmallDataIO::APPEND,
-                                            first_step);
-                // SmallDataIO norm_file(norm_filename, dt, fake_time,
-                // fake_time,
-                //                      SmallDataIO::APPEND, first_step);
-
-                // write header in each file
-                std::vector<std::string> header_strings(num_columns);
-                for (int iradius = 0; iradius < num_extraction_radii; ++iradius)
-                {
-                    header_strings[dim * iradius] = "x";
-                    header_strings[dim * iradius + 1] = "y";
-                    header_strings[dim * iradius + 2] = "z";
-                }
-                // note "time" is automatically in header for the first column
-                flux_file.write_header_line(header_strings);
-                cumulative_file.write_header_line(header_strings);
-                // norm_file.write_header_line({});
-
-                // now write the data
-                for (int istep = 0; istep < num_steps; ++istep)
-                {
-                    double time = min_time + istep * dt;
-                    std::vector<double> flux_data_for_writing(
-                        dim * num_extraction_radii);
-                    std::vector<double> cumulative_data_for_writing(
-                        dim * num_extraction_radii);
-                    // std::vector<double>
-                    // norm_data_for_writing(num_extraction_radii);
-
-                    for (int icol = 0; icol < num_columns; ++icol)
-                    {
-                        flux_data_for_writing[icol] = pmode_flux[icol][istep];
-                        cumulative_data_for_writing[icol] = pmode[icol][istep];
-                    }
-                    // for (int iradius = 0; iradius < num_extraction_radii;
-                    // ++iradius)
-                    //{
-                    //   norm_data_for_writing[iradius] =
-                    //   pmode_norm[iradius][istep];
-                    //}
-                    flux_file.write_data_line(flux_data_for_writing, time);
-                    cumulative_file.write_data_line(cumulative_data_for_writing,
-                                                    time);
-                    // norm_file.write_data_line(norm_data_for_writing, time);
-                }
+                weyl4_mode_data.m_time_data.write_data(
+                    flux_filename_stem, pmode_flux, {"x", "y", "z"});
+                weyl4_mode_data.m_time_data.write_data(cumulative_filename_stem,
+                                                       pmode, {"x", "y", "z"});
             }
         }
     }
@@ -290,12 +236,12 @@ int main(int argc, char *argv[])
             }
         }
 
-        std::map<int, WeylModeData::mode_data_t> l_sum_data;
+        std::map<int, WeylModeData::mode_data_t> sum_m_pmode_data;
         for (int l : Options::l_pmodes)
         {
             if (weyl4_mode_data.check_momentum_pmode_computable(l))
             {
-                l_sum_data.emplace(l, WeylModeData::mode_data_t());
+                sum_m_pmode_data.emplace(l, WeylModeData::mode_data_t());
                 for (int m = -l; m <= l; ++m)
                 {
                     std::cout << "Computing l = " << l
@@ -312,13 +258,13 @@ int main(int argc, char *argv[])
                                                                    pmode_flux);
                     if (m == -l)
                     {
-                        l_sum_data[l] = std::move(pmode_data);
+                        sum_m_pmode_data[l] = std::move(pmode_data);
                     }
                     else
                     {
                         const int num_columns = pmode_flux.size();
                         const int num_steps = pmode_flux[0].size();
-                        auto &l_sum = l_sum_data[l];
+                        auto &l_sum = sum_m_pmode_data[l];
                         for (int icol = 0; icol < num_columns; ++icol)
                         {
                             for (int istep = 0; istep < num_steps; ++istep)
@@ -328,47 +274,39 @@ int main(int argc, char *argv[])
                         }
                     }
                 }
-                // redundant variables for the SmallDataIO constructor as this
-                // is ripped from GRChombo
-                constexpr double fake_time = 0.0;
-                constexpr double first_step = true;
 
-                const int num_columns = l_sum_data[l].size();
-                constexpr int dim = 3;
-                const int num_extraction_radii = num_columns / dim;
-                const int num_steps = l_sum_data[l][0].size();
                 // open file for writing
-                std::string l_sum_filename =
+                std::string sum_m_filename_stem =
                     Options::output_file_prefix + "l" + std::to_string(l);
-                SmallDataIO l_sum_file(l_sum_filename, dt, fake_time, fake_time,
-                                       SmallDataIO::APPEND, first_step);
 
-                // write header
-                std::vector<std::string> header_strings(num_columns);
-                for (int iradius = 0; iradius < num_extraction_radii; ++iradius)
+                weyl4_mode_data.m_time_data.write_data(
+                    sum_m_filename_stem, sum_m_pmode_data[l], {"x", "y", "z"});
+            }
+        }
+        if (Options::sum_over_l)
+        {
+            // no need to write partial sum for l=2 as we've already done that
+            // above
+            WeylModeData::mode_data_t sum_l_data =
+                sum_m_pmode_data.begin()->second;
+            std::string filename_stem = Options::output_file_prefix + "l2";
+            for (int l = 3; sum_m_pmode_data.find(l) != sum_m_pmode_data.end();
+                 ++l)
+            {
+                const auto &this_sum_m_data = sum_m_pmode_data[l];
+                const int num_columns = sum_l_data.size();
+                const int num_steps = sum_l_data[0].size();
+                for (int icol = 0; icol < num_columns; ++icol)
                 {
-                    header_strings[dim * iradius] = "x";
-                    header_strings[dim * iradius + 1] = "y";
-                    header_strings[dim * iradius + 2] = "z";
-                }
-                // note "time" is automatically in header for the first column
-                l_sum_file.write_header_line(header_strings);
-
-                const auto &this_l_sum_data = l_sum_data[l];
-
-                // now write the data
-                for (int istep = 0; istep < num_steps; ++istep)
-                {
-                    double time = min_time + istep * dt;
-                    std::vector<double> l_sum_data_for_writing(num_columns);
-
-                    for (int icol = 0; icol < num_columns; ++icol)
+                    for (int istep = 0; istep < num_steps; ++istep)
                     {
-                        l_sum_data_for_writing[icol] =
-                            this_l_sum_data[icol][istep];
+                        sum_l_data[icol][istep] += this_sum_m_data[icol][istep];
                     }
-                    l_sum_file.write_data_line(l_sum_data_for_writing, time);
                 }
+                filename_stem += "+l" + std::to_string(l);
+
+                weyl4_mode_data.m_time_data.write_data(
+                    filename_stem, sum_l_data, {"x", "y", "z"});
             }
         }
     }
