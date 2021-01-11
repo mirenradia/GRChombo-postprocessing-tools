@@ -5,7 +5,7 @@
 
 #include "SmallDataIO.hpp"
 #include "TimeData.hpp"
-#include "WeylModeData.hpp"
+#include "WeylMomentumModeData.hpp"
 //#include <chrono>
 #include <getopt.h>
 #include <iomanip>
@@ -163,11 +163,11 @@ int main(int argc, char *argv[])
     std::string input_filename_pattern;
     process_args(argc, argv, input_filename_pattern);
 
-    WeylModeData weyl4_mode_data(input_filename_pattern);
+    WeylMomentumModeData weyl4_momentum_mode_data(input_filename_pattern);
 
     std::cout << "Reading Data\n";
     // auto start_timer = Clock::now();
-    weyl4_mode_data.read_mode_data();
+    weyl4_momentum_mode_data.read_mode_data();
     // auto end_timer = Clock::now();
     // std::chrono::duration<double, std::ratio<1>> time_taken =
     //    end_timer - start_timer;
@@ -182,7 +182,7 @@ int main(int argc, char *argv[])
         if (Options::pmodes.empty())
         {
             // all available Psi4 modes are a superset of all computable pmodes
-            Options::pmodes = weyl4_mode_data.get_available_modes();
+            Options::pmodes = weyl4_momentum_mode_data.get_available_modes();
         }
 
         for (const auto &pmode : Options::pmodes)
@@ -192,20 +192,20 @@ int main(int argc, char *argv[])
             std::cout << "Computing l = " << l << ", m = " << std::setw(2) << m
                       << "\r" << std::flush;
 
-            if (weyl4_mode_data.check_momentum_pmode_computable(l, m))
+            if (weyl4_momentum_mode_data.check_momentum_pmode_computable(l, m))
             {
                 std::cout << "Computing l = " << l << ", m = " << std::setw(2)
                           << m << "\r" << std::flush;
                 // compute momentum flux for this pmode in each direction
                 const auto &pmode_flux =
-                    weyl4_mode_data.compute_momentum_flux_pmode(
+                    weyl4_momentum_mode_data.compute_momentum_flux_pmode(
                         l, m, Options::extraction_radius);
 
                 // integrate flux in time to get cumulative radiated momentum
                 // for this pmode in each direction
                 TimeData::time_multidata_t pmode;
-                weyl4_mode_data.m_time_data.integrate_all_time(pmode,
-                                                               pmode_flux);
+                weyl4_momentum_mode_data.m_time_data.integrate_all_time(
+                    pmode, pmode_flux);
 
                 // write flux and cumulative data to files
                 std::string filename_suffix =
@@ -215,10 +215,10 @@ int main(int argc, char *argv[])
                 std::string cumulative_filename_stem =
                     Options::output_file_prefix + filename_suffix;
 
-                weyl4_mode_data.m_time_data.write_data(
+                weyl4_momentum_mode_data.m_time_data.write_data(
                     flux_filename_stem, pmode_flux, {"x", "y", "z"});
-                weyl4_mode_data.m_time_data.write_data(cumulative_filename_stem,
-                                                       pmode, {"x", "y", "z"});
+                weyl4_momentum_mode_data.m_time_data.write_data(
+                    cumulative_filename_stem, pmode, {"x", "y", "z"});
             }
         }
     }
@@ -229,7 +229,8 @@ int main(int argc, char *argv[])
         {
             // just put all the l we have available. We'll check if it's
             // actually computable later
-            const auto &available_modes = weyl4_mode_data.get_available_modes();
+            const auto &available_modes =
+                weyl4_momentum_mode_data.get_available_modes();
             for (const auto &mode : available_modes)
             {
                 Options::l_pmodes.insert(mode.first);
@@ -239,7 +240,7 @@ int main(int argc, char *argv[])
         std::map<int, WeylModeData::mode_data_t> sum_m_pmode_data;
         for (int l : Options::l_pmodes)
         {
-            if (weyl4_mode_data.check_momentum_pmode_computable(l))
+            if (weyl4_momentum_mode_data.check_momentum_pmode_computable(l))
             {
                 sum_m_pmode_data.emplace(l, WeylModeData::mode_data_t());
                 for (int m = -l; m <= l; ++m)
@@ -248,14 +249,14 @@ int main(int argc, char *argv[])
                               << ", m = " << std::setw(2) << m << "\r"
                               << std::flush;
                     const auto &pmode_flux =
-                        weyl4_mode_data.compute_momentum_flux_pmode(
+                        weyl4_momentum_mode_data.compute_momentum_flux_pmode(
                             l, m, Options::extraction_radius);
 
                     // integrate flux in time to get cumulative radiated
                     // momentum for this pmode in each direction
                     WeylModeData::mode_data_t pmode_data;
-                    weyl4_mode_data.m_time_data.integrate_all_time(pmode_data,
-                                                                   pmode_flux);
+                    weyl4_momentum_mode_data.m_time_data.integrate_all_time(
+                        pmode_data, pmode_flux);
                     if (m == -l)
                     {
                         sum_m_pmode_data[l] = std::move(pmode_data);
@@ -279,7 +280,7 @@ int main(int argc, char *argv[])
                 std::string sum_m_filename_stem =
                     Options::output_file_prefix + "l" + std::to_string(l);
 
-                weyl4_mode_data.m_time_data.write_data(
+                weyl4_momentum_mode_data.m_time_data.write_data(
                     sum_m_filename_stem, sum_m_pmode_data[l], {"x", "y", "z"});
             }
         }
@@ -305,7 +306,7 @@ int main(int argc, char *argv[])
                 }
                 filename_stem += "+l" + std::to_string(l);
 
-                weyl4_mode_data.m_time_data.write_data(
+                weyl4_momentum_mode_data.m_time_data.write_data(
                     filename_stem, sum_l_data, {"x", "y", "z"});
             }
         }

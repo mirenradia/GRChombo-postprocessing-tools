@@ -14,6 +14,7 @@ LibNames := BaseTools
 
 src_dirs := ../Source \
             ../Source/TimeData \
+            ../Source/WeylData \
             $(GRCHOMBO_SOURCE)/AMRInterpolator \
             $(GRCHOMBO_SOURCE)/utils
 

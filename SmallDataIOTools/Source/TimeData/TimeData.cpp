@@ -346,7 +346,8 @@ void TimeData::write_data(const std::string &a_filename_stem,
         }
     }
     file.write_header_line(full_header1_strings, a_pre_header1_string);
-    file.write_header_line(full_header2_strings, a_pre_header2_string);
+    if (header2_length > 0 || a_pre_header2_string.size() > 0)
+        file.write_header_line(full_header2_strings, a_pre_header2_string);
 
     for (int istep = 0; istep < m_num_steps; ++istep)
     {
