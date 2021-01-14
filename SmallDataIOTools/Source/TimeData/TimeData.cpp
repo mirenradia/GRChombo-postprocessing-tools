@@ -76,7 +76,12 @@ std::vector<double>
 TimeData::read_data_from_header(const int a_header_row_number,
                                 const int a_block)
 {
-    return m_file_reader.get_data_from_header(a_header_row_number, a_block);
+    int num_header_rows =
+        m_file_reader.get_file_structure().num_header_rows[a_block];
+    if (a_header_row_number < num_header_rows)
+        return m_file_reader.get_data_from_header(a_header_row_number, a_block);
+    else
+        return {};
 }
 
 const TimeData::time_multidata_t &TimeData::get_data() const { return m_data; }
@@ -346,8 +351,7 @@ void TimeData::write_data(const std::string &a_filename_stem,
         }
     }
     file.write_header_line(full_header1_strings, a_pre_header1_string);
-    if (header2_length > 0 || a_pre_header2_string.size() > 0)
-        file.write_header_line(full_header2_strings, a_pre_header2_string);
+    file.write_header_line(full_header2_strings, a_pre_header2_string);
 
     for (int istep = 0; istep < m_num_steps; ++istep)
     {

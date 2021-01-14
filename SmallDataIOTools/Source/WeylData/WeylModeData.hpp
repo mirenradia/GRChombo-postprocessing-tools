@@ -44,6 +44,7 @@ class WeylModeData
     bool m_data_read = false;
     int m_num_modes;
     int m_num_extraction_radii;
+    std::vector<double> m_extraction_radii;
     int m_num_steps;
     std::vector<mode_data_t>
         m_time_integrated_mode_data; // stores the time integrated mode data
@@ -51,7 +52,9 @@ class WeylModeData
         m_mode_data_time_integrated; // stores whether a mode has been time
                                      // integrated or not
 
-    void find_available_modes(const std::string &a_mode_file_pattern)
+    void find_available_modes(
+        const std::string &a_mode_file_pattern,
+        const std::vector<std::pair<int, int>> &a_requested_modes = {})
     {
 #if __GNUC__ >= 8
         namespace fs = std::filesystem;
@@ -110,7 +113,12 @@ class WeylModeData
                     {
                         m = std::stoi(
                             filename.substr(m_pos, m_pos_end - m_pos));
-                        m_available_modes.emplace_back(l, m);
+                        std::pair<int, int> mode = {l, m};
+                        if (a_requested_modes.empty() ||
+                            std::find(a_requested_modes.begin(),
+                                      a_requested_modes.end(),
+                                      mode) != a_requested_modes.end())
+                            m_available_modes.push_back(mode);
                     }
                 }
             }
@@ -119,9 +127,10 @@ class WeylModeData
     }
 
   public:
-    WeylModeData(const std::string &a_mode_file_pattern)
+    WeylModeData(const std::string &a_mode_file_pattern,
+                 const std::vector<std::pair<int, int>> &a_requested_modes = {})
     {
-        find_available_modes(a_mode_file_pattern);
+        find_available_modes(a_mode_file_pattern, a_requested_modes);
     }
 
     // returns the full path to the file for the (l,m) mode data
@@ -151,6 +160,7 @@ class WeylModeData
         assert(!m_data_read);
         m_mode_data.resize(m_num_modes);
 
+        bool first_mode = true;
         for (int imode = 0; imode < m_num_modes; ++imode)
         {
             m_time_data.clear();
@@ -158,6 +168,13 @@ class WeylModeData
             const std::string filepath =
                 get_mode_filepath(mode.first, mode.second);
             m_time_data.read_data(filepath);
+            if (first_mode)
+            {
+                constexpr int rex_header_row = 1;
+                m_extraction_radii =
+                    m_time_data.read_data_from_header(rex_header_row);
+                first_mode = false;
+            }
             m_mode_data[imode] = std::move(m_time_data.get_data());
         }
         if (m_num_modes > 0)
@@ -227,6 +244,13 @@ class WeylModeData
     const std::vector<std::pair<int, int>> &get_available_modes() const
     {
         return m_available_modes;
+    }
+
+    // note that this will have each radius twice as it is read from the
+    // mode file where each radius has two columns (real and imaginary parts)
+    const std::vector<double> &get_extraction_radii() const
+    {
+        return m_extraction_radii;
     }
 };
 
