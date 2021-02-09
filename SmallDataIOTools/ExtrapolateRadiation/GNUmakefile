@@ -17,6 +17,9 @@ src_dirs := ../Source \
             $(GRCHOMBO_SOURCE)/AMRInterpolator \
             $(GRCHOMBO_SOURCE)/utils
 
+# Don't use MPI
+MPI = FALSE
+
 # Filesystem library is a C++17 feature
 XTRACXXFLAGS := $(XTRACXXFLAGS) -std=c++17
 #export XTRACXXFLAGS

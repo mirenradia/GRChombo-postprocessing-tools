@@ -326,3 +326,50 @@ SmallDataIOReader::get_data_from_header(int a_header_row_number, int a_block)
 
     return out;
 }
+
+std::vector<std::string>
+SmallDataIOReader::get_header_strings(int a_header_row_number, int a_block)
+{
+    assert(m_file.is_open());
+    assert(m_structure_defined);
+    assert(a_header_row_number < m_file_structure.num_header_rows[a_block]);
+
+    // move stream to start of block
+    m_file.clear();
+    m_file.seekg(m_file_structure.block_starts[a_block], std::ios::beg);
+
+    // assume header rows are at start of block
+    for (int irow = 0; irow < a_header_row_number; ++irow)
+    {
+        // skip lines before desired row
+        m_file.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    }
+
+    std::string line;
+    std::getline(m_file, line);
+
+    std::vector<std::string> out(m_file_structure.num_data_columns[a_block]);
+
+    for (int icol = 0; icol < out.size(); ++icol)
+    {
+        int start_idx = m_file_structure.num_coords_columns[a_block] *
+                            m_file_structure.coords_width +
+                        icol * m_file_structure.data_width;
+        if (start_idx < line.size())
+        {
+            std::string column_header =
+                line.substr(start_idx, m_file_structure.data_width);
+            int first_non_whitespace_char = std::distance(
+                column_header.begin(),
+                std::find_if(column_header.begin(), column_header.end(),
+                             [](char c) { return (c != ' '); }));
+            out[icol] = column_header.substr(first_non_whitespace_char);
+        }
+        else
+        {
+            out[icol] = "";
+        }
+    }
+
+    return out;
+}

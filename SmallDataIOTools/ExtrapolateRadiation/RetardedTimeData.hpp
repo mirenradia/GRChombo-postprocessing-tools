@@ -21,16 +21,16 @@ class RetardedTimeData : public TimeData
   protected:
     int m_num_data_cols_per_radii = 0;
     std::vector<double> m_radii;
-    bool m_use_tortoise_radii;
     std::vector<double> m_tortoise_radii;
     bool m_radii_read = false;
     std::vector<bool> m_use_radii;
-    std::vector<double>
-        m_radii_to_use; // might be tortoise if m_use_tortoise_radii = true
+    std::vector<double> m_chosen_radii;
+    std::vector<double> m_chosen_tortoise_radii;
     int m_num_radii_to_use;
     bool m_radii_chosen = false;
     std::pair<double, double> m_retarded_time_limits;
     bool m_time_limits_calculated = false;
+    bool m_use_tortoise_radii_for_retardation;
     int m_num_retarded_steps;
     time_multidata_t m_retarded_data;
     time_multidata_t m_extrapolated_data;
@@ -42,7 +42,13 @@ class RetardedTimeData : public TimeData
     // Set retardation parameters, call before set_radii()
     void set_num_data_cols_per_radii(int a_num_data_cols_per_radius)
     {
+        assert(m_data_read);
         m_num_data_cols_per_radii = a_num_data_cols_per_radius;
+        std::cout << "Assuming " << m_num_data_cols_per_radii
+                  << " data columns per radius which means there are\n"
+                  << m_file_reader.get_file_structure().num_data_columns[0] /
+                         m_num_data_cols_per_radii
+                  << " radii in the file\n";
     }
 
     // calculate time limits, call after read_data() and
@@ -50,7 +56,6 @@ class RetardedTimeData : public TimeData
     void set_radii(const bool a_use_tortoise_radii = false,
                    const double a_mass = 1)
     {
-        assert(m_num_data_cols_per_radii > 0);
         assert(m_data_read);
         constexpr int radii_row = 1;
         std::vector<double> repeated_radii =
@@ -63,17 +68,18 @@ class RetardedTimeData : public TimeData
                 repeated_radii[m_num_data_cols_per_radii * iradius];
         }
 
-        m_use_tortoise_radii = a_use_tortoise_radii;
-
-        if (m_use_tortoise_radii)
+        if (a_use_tortoise_radii)
         {
-            m_tortoise_radii.resize(m_radii.size());
-            for (int iradius = 0; iradius < m_radii.size(); ++iradius)
-            {
-                double r = m_radii[iradius];
-                m_tortoise_radii[iradius] =
-                    r + 2.0 * a_mass * std::log(r / (2.0 * a_mass) - 1);
-            }
+            std::cout
+                << "Using Tortoise radial coordinate for time retardation\n"
+                << "with mass = " << a_mass << "\n";
+        }
+        m_tortoise_radii.resize(m_radii.size());
+        for (int iradius = 0; iradius < m_radii.size(); ++iradius)
+        {
+            double r = m_radii[iradius];
+            m_tortoise_radii[iradius] =
+                r + 2.0 * a_mass * std::log(r / (2.0 * a_mass) - 1);
         }
         m_radii_read = true;
     }
@@ -87,24 +93,41 @@ class RetardedTimeData : public TimeData
         m_use_radii = (a_use_radii.size() != 0)
                           ? a_use_radii
                           : std::vector<bool>(m_radii.size(), true);
-        const auto &radii = (m_use_tortoise_radii) ? m_tortoise_radii : m_radii;
+        std::cout << "Using data from coordinate radii = ";
         for (int iradius = 0; iradius < m_radii.size(); ++iradius)
         {
             if (m_use_radii[iradius])
             {
-                m_radii_to_use.push_back(radii[iradius]);
+                m_chosen_radii.push_back(m_radii[iradius]);
+                m_chosen_tortoise_radii.push_back(m_tortoise_radii[iradius]);
+                std::cout << m_radii[iradius] << " ";
             }
         }
-        m_num_radii_to_use = m_radii_to_use.size();
+        std::cout << "\n";
+        m_num_radii_to_use = m_chosen_radii.size();
         m_radii_chosen = true;
     }
 
-    // calculate time limits, call after set_radii_to_use()
-    void calculate_time_limits()
+    const std::vector<double> &
+    get_chosen_radii(bool a_use_tortoise_radii = false)
     {
         assert(m_radii_chosen);
+        return (a_use_tortoise_radii) ? m_chosen_tortoise_radii
+                                      : m_chosen_radii;
+    }
+
+    // calculate time limits, call after set_radii_to_use()
+    void
+    calculate_time_limits(bool a_use_tortoise_radii_for_retardation = false)
+    {
+        assert(m_radii_chosen);
+        m_use_tortoise_radii_for_retardation =
+            a_use_tortoise_radii_for_retardation;
+        const auto &chosen_radii = (m_use_tortoise_radii_for_retardation)
+                                       ? m_chosen_tortoise_radii
+                                       : m_chosen_radii;
         auto minmax_it =
-            std::minmax_element(m_radii_to_use.begin(), m_radii_to_use.end());
+            std::minmax_element(chosen_radii.begin(), chosen_radii.end());
         m_retarded_time_limits.first = m_time_limits.first - *(minmax_it.first);
         m_retarded_time_limits.second =
             m_time_limits.second - *(minmax_it.second);
@@ -113,9 +136,13 @@ class RetardedTimeData : public TimeData
                                           m_dt) +
                                1;
         m_time_limits_calculated = true;
+        std::cout << "Min retarded time = " << m_retarded_time_limits.first
+                  << "\nMax retarded time = " << m_retarded_time_limits.second
+                  << "\n";
     }
 
-    const std::pair<double, double> &get_retarded_time_limits()
+    const std::pair<double, double> &
+    get_retarded_time_limits(bool a_use_tortoise_radii = false)
     {
         assert(m_time_limits_calculated);
         return m_retarded_time_limits;
@@ -131,7 +158,8 @@ class RetardedTimeData : public TimeData
         gsl_spline *spline_interp =
             gsl_spline_alloc(gsl_interp_cspline, m_num_steps);
         gsl_interp_accel *interp_acc = gsl_interp_accel_alloc();
-        const auto &radii = (m_use_tortoise_radii) ? m_tortoise_radii : m_radii;
+        const auto &radii =
+            (m_use_tortoise_radii_for_retardation) ? m_tortoise_radii : m_radii;
 
         for (int iradius = 0; iradius < m_radii.size(); ++iradius)
         {
@@ -175,7 +203,7 @@ class RetardedTimeData : public TimeData
         return m_retarded_data;
     }
 
-    void extrapolate_data(int a_order)
+    void extrapolate_data(int a_order, bool a_use_tortoise_radii = false)
     {
         assert(a_order >= 0);
         m_extrapolated_data.resize(m_num_data_cols_per_radii);
@@ -186,9 +214,11 @@ class RetardedTimeData : public TimeData
 
         gsl_matrix *inv_radii =
             gsl_matrix_alloc(m_num_radii_to_use, a_order + 1);
+        const auto &chosen_radii =
+            (a_use_tortoise_radii) ? m_chosen_tortoise_radii : m_chosen_radii;
         for (int iradius = 0; iradius < m_num_radii_to_use; ++iradius)
         {
-            double inv_radius = 1.0 / m_radii_to_use[iradius];
+            double inv_radius = 1.0 / chosen_radii[iradius];
             for (int iord = 0; iord <= a_order; ++iord)
             {
                 gsl_matrix_set(inv_radii, iradius, iord,

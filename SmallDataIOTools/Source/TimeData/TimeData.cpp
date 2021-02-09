@@ -84,6 +84,18 @@ TimeData::read_data_from_header(const int a_header_row_number,
         return {};
 }
 
+std::vector<std::string>
+TimeData::read_header_strings(const int a_header_row_number, const int a_block)
+{
+    int num_header_rows =
+        m_file_reader.get_file_structure().num_header_rows[a_block];
+
+    if (a_header_row_number < num_header_rows)
+        return m_file_reader.get_header_strings(a_header_row_number, a_block);
+    else
+        return {};
+}
+
 const TimeData::time_multidata_t &TimeData::get_data() const { return m_data; }
 double TimeData::get_dt() const { return m_dt; }
 const std::pair<double, double> &TimeData::get_time_limits() const

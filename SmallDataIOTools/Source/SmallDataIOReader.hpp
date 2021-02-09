@@ -86,6 +86,10 @@ class SmallDataIOReader
     // Returns a vector of numeric values from a header row
     std::vector<double> get_data_from_header(int a_header_row_number,
                                              int a_block = 0);
+
+    // Returns a vector of strings from a header row
+    std::vector<std::string> get_header_strings(int a_header_row_number,
+                                                int a_block = 0);
 };
 
 #endif /* SMALLDATAIOREADER_HPP */

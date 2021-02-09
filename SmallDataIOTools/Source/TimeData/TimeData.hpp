@@ -54,6 +54,10 @@ class TimeData
     std::vector<double> read_data_from_header(const int a_header_row_number,
                                               const int a_block = 0);
 
+    // Read strings from header
+    std::vector<std::string> read_header_strings(const int a_header_row_number,
+                                                 const int a_block = 0);
+
     // Getters
     const time_multidata_t &get_data() const;
     double get_dt() const;
