@@ -6,19 +6,23 @@ function print_help {
   echo "-d NUM_COLUMNS    drop the first NUM_COLUMNS columns from each file"
   echo "                  after the first"
   echo "                  default: 1"
-  echo "-w WIDTH          widths of the column in the output"
+  echo "-s START_WIDTH    width of the first NUM_COLUMNS column in the file"
+  echo "                  default: 13"
+  echo "-w WIDTH          widths of the other column in the output"
   echo "                  default: 15"
   echo "-c                include comment lines"
   echo "                  default: false"
   echo "-h                print help"
 }
 
-OPTSTRING="d:w:ch"
+OPTSTRING="d:s:w:ch"
 # Default number of columns to drop
 DROP_COLUMNS=1
 # Default to dropping comment lines
 INCLUDE_COMMENT_LINES=false
-# Default to a column width of 15
+# Default to a column width of 13 for the first DROP_COLUMNS columns
+START_COLUMN_WIDTH="13"
+# Default to a column width of 15 for the other columns
 COLUMN_WIDTH="15"
 
 while getopts ${OPTSTRING} ARG;
@@ -31,6 +35,14 @@ do
         exit 1
       fi
       DROP_COLUMNS=${OPTARG}
+      ;;
+    s)
+      if ! [[ ${OPTARG} =~ ^[0-9]+$ ]]; then
+        echo "argument to -w must be a non-negative integer"
+        print_help
+        exit 1
+      fi
+      START_COLUMN_WIDTH=${OPTARG}
       ;;
     w)
       if ! [[ ${OPTARG} =~ ^[0-9]+$ ]]; then
@@ -111,23 +123,32 @@ else
   FILES_TO_USE=("${NOCOMMENT_FILES[@]}")
 fi
 
-# Now actually do the nice printing
-for (( LINE_IDX=1; LINE_IDX<=NUM_LINES; ++LINE_IDX))
+# Remove DROP_COLUMNS columns from all but the first file and write these
+# to temporary files
+DECOLUMNED_FILES_TO_USE=("${FILES_TO_USE[0]}")
+for FILE in "${FILES_TO_USE[@]:1}"
 do
-  for FILE in "${FILES_TO_USE[@]}"
-  do
-    LINE="$(sed "${LINE_IDX}q;d" $FILE)"
-    LINE_AR=($LINE)
-    # Drop columns if not the first file
-    if [[ "$FILE" != "${FILES_TO_USE[0]}" ]]; then
-      REQUIRED_ELEMS=("${LINE_AR[@]:${DROP_COLUMNS}}")
-    else
-      REQUIRED_ELEMS=("${LINE_AR[@]}")
-    fi
-    for ELEM in "${REQUIRED_ELEMS[@]}"
-    do
-      printf "%${COLUMN_WIDTH}s" $ELEM
-    done
-  done
-  printf '\n'
+  DECOLUMNED_FILE="/tmp/decolumned-$(basename ${FILE})"
+  awk -v drop_columns=${DROP_COLUMNS} \
+  '{
+    for (i = 1; i <= drop_columns; ++i) {
+      $i = ""
+   }; print}' $FILE > "$DECOLUMNED_FILE"
+   DECOLUMNED_FILES_TO_USE+=("${DECOLUMNED_FILE}")
 done
+
+# Now paste the columns together and print nicely with awk
+paste "${DECOLUMNED_FILES_TO_USE[@]}" | awk \
+  -v start_column_width=${START_COLUMN_WIDTH} -v column_width=${COLUMN_WIDTH} \
+  -v drop_columns=${DROP_COLUMNS} \
+    '{
+      for (i = 1; i <= drop_columns; ++i){
+        printf "%*s", start_column_width, $i}
+      for (j = drop_columns + 1; j <= NF; ++j){
+      printf "%*s", column_width, $j}
+      printf "\n"
+    }'
+
+# Now clean up temporary files
+rm -f "${NOCOMMENT_FILE[@]}"
+rm -f "${DECOLUMNED_FILES_TO_USE[@]}"

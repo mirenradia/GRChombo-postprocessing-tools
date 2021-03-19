@@ -244,7 +244,7 @@ int main(int argc, char *argv[])
         extrapolated_file_header1_strings[icol] =
             column_names[icol % Options::num_data_per_radius];
         extrapolated_file_header2_strings[icol] = std::to_string(*order_it);
-        if (icol % Options::num_data_per_radius == 0)
+        if ((icol + 1) % Options::num_data_per_radius == 0)
             ++order_it;
     }
 
