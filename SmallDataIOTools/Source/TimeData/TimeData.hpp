@@ -111,6 +111,10 @@ class TimeData
     void add_to_columns(time_multidata_t &data,
                         const std::vector<double> &a_values_to_add);
 
+    // Multiply each column by a factor
+    void multiply_columns(time_multidata_t &data,
+                          const std::vector<double> &a_factors);
+
     // Clear all data and file information
     void clear();
 

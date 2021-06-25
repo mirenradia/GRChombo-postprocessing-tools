@@ -58,10 +58,10 @@ class StrainModeData : public WeylModeData
     }
 
     // override this function as we need to resize m_strain_data
-    void read_mode_data()
+    void read_mode_data(const double extraction_radius_multiplier = 1.0)
     {
         // this actually does the reading
-        WeylModeData::read_mode_data();
+        WeylModeData::read_mode_data(extraction_radius_multiplier);
         m_strain_data.resize(m_num_modes);
         m_cutoff_freq_lows.resize(m_num_modes);
         m_strain_computed.resize(m_num_modes, false);

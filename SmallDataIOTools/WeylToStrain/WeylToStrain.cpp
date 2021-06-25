@@ -164,7 +164,7 @@ int main(int argc, char *argv[])
     StrainModeData strain_mode_data(input_filename_pattern, Options::modes);
 
     std::cout << "Reading Data\n";
-    strain_mode_data.read_mode_data();
+    strain_mode_data.read_mode_data(Options::extraction_radius);
 
     if (Options::modes.empty())
     {

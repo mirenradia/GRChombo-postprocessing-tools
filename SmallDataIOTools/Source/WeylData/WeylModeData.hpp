@@ -155,7 +155,10 @@ class WeylModeData
     }
 
     // read all modes
-    void read_mode_data()
+    // the extraction radius multiplier is unnecessary for GRChombo data which
+    // already multiplied by extraction radius but is useful for data from
+    // other codes e.g. Lean
+    void read_mode_data(const double extraction_radius_multiplier = 1.0)
     {
         assert(!m_data_read);
         m_mode_data.resize(m_num_modes);
@@ -182,6 +185,20 @@ class WeylModeData
             m_num_extraction_radii = m_mode_data[0].size() / 2;
             m_num_steps = m_mode_data[0][0].size();
         }
+
+        // multiply by extraction radius if necessary
+        if (extraction_radius_multiplier != 1.0)
+        {
+            for (int imode = 0; imode < m_num_modes; ++imode)
+            {
+                // assume the file only has 1 extraction radius
+                std::vector<double> extraction_radius_vector(
+                    m_num_extraction_radii * 2, extraction_radius_multiplier);
+                m_time_data.multiply_columns(m_mode_data[imode],
+                                             extraction_radius_vector);
+            }
+        }
+
         m_zero_mode.resize(m_num_extraction_radii * 2);
         for (auto &dataset : m_zero_mode)
         {

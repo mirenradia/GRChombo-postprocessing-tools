@@ -394,6 +394,21 @@ void TimeData::add_to_columns(time_multidata_t &data,
     }
 }
 
+void TimeData::multiply_columns(time_multidata_t &data,
+                                const std::vector<double> &a_factors)
+{
+    const int num_columns = data.size();
+    const int num_steps = data[0].size();
+    assert(num_columns == a_factors.size());
+    for (int icol = 0; icol < num_columns; ++icol)
+    {
+        for (int istep = 0; istep < num_steps; ++istep)
+        {
+            data[icol][istep] *= a_factors[icol];
+        }
+    }
+}
+
 void TimeData::clear()
 {
     m_data_read = false;
