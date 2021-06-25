@@ -8,6 +8,7 @@
 #include <cassert>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <regex>
 
 void SmallDataIOReader::file_structure_t::clear()
